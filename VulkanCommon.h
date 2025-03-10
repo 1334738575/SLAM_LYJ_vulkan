@@ -7,11 +7,6 @@
 #include <fstream>
 #include <set>
 
-#include <opencv2/opencv.hpp>
-
-
-
-
 
 //export
 #ifdef WIN32
@@ -59,7 +54,7 @@ struct SwapChainSupportDetails
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 };
-class Instance
+class VULKAN_LYJ_API Instance
 {
 public:
 	Instance();
@@ -75,6 +70,7 @@ public:
 		return &instance;
 	}
 
+	bool isInited();
 	VkResult init(bool _bGlfw=false, bool _bValid=false);
 	void clean();
 
@@ -83,7 +79,7 @@ private:
 	VkResult createPhysicalDevice();
 	VkResult createDeviceAndQueue();
 	VkResult createCommandPool();
-
+//
 private:
 	bool m_init = false;
 	VkInstance m_instance = VK_NULL_HANDLE;
@@ -95,6 +91,9 @@ private:
 	std::vector<const char*> m_supportLayers;
 	std::vector<const char*> m_enableLayers;
 
+	GLFWwindow* m_windows = nullptr;
+	const uint32_t m_width = 1600;
+	const uint32_t m_height = 1200;
 	VkSurfaceKHR m_surface;
 	std::vector<VkQueueFamilyProperties> m_queueFamilies;
 	QueueFamilyIndices m_queueIndices;
