@@ -1,10 +1,10 @@
+#ifndef VULKAN_COMMON_H
+#define VULKAN_COMMON_H
+
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-
 #include <optional>
 #include <iostream>
-#include <fstream>
 #include <set>
 
 
@@ -54,25 +54,31 @@ struct SwapChainSupportDetails
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 };
-class VULKAN_LYJ_API Instance
+class VULKAN_LYJ_API VKInstance
 {
 public:
-	Instance();
-	~Instance();
+	VKInstance();
+	~VKInstance();
 
-	Instance(const Instance&) = delete;
-	Instance& operator=(const Instance&) = delete;
+	VKInstance(const VKInstance&) = delete;
+	VKInstance& operator=(const VKInstance&) = delete;
 
 	//µ¥Àý
-	static Instance* GetInstance()
+	static VKInstance* GetVKInstance()
 	{
-		static Instance instance;
+		static VKInstance instance;
 		return &instance;
 	}
 
 	bool isInited();
-	VkResult init(bool _bGlfw=false, bool _bValid=false);
+	VkResult init(bool _bGlfw=false, GLFWwindow* _windows=nullptr, bool _bValid=false);
 	void clean();
+
+	VkQueue getGraphicQueue(int _i);
+	VkQueue getPresentQueue(int _i);
+	VkQueue getComputeQueue(int _i);
+
+	uint32_t getMemoryTypeIndex(uint32_t _typeBits, VkMemoryPropertyFlags _properties);
 
 private:
 	VkResult createInstance();
@@ -80,7 +86,7 @@ private:
 	VkResult createDeviceAndQueue();
 	VkResult createCommandPool();
 //
-private:
+public:
 	bool m_init = false;
 	VkInstance m_instance = VK_NULL_HANDLE;
 
@@ -116,9 +122,14 @@ private:
 };
 
 
+
+VULKAN_LYJ_API VKInstance* GetLYJVKInstance();
+
+
 NSP_VULKAN_LYJ_END
 
 
 
 
 
+#endif // !VULKAN_COMMON_H

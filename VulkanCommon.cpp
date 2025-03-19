@@ -3,19 +3,19 @@
 NSP_VULKAN_LYJ_BEGIN
 
 
-Instance::Instance()
+VKInstance::VKInstance()
 {
 }
-Instance::~Instance()
+VKInstance::~VKInstance()
 {
-	clean();
+	//clean();
 }
 
 
-bool Instance::isInited() {
+bool VKInstance::isInited() {
 	return m_init;
 }
-VkResult Instance::init(bool _bGlfw, bool _bValid)
+VkResult VKInstance::init(bool _bGlfw, GLFWwindow* _windows, bool _bValid)
 {
 	VkResult ret = VK_SUCCESS;
 	m_init = false;
@@ -23,6 +23,17 @@ VkResult Instance::init(bool _bGlfw, bool _bValid)
 	m_bValid = _bValid;
 	m_enableInstanceExtensions.clear();
 	m_enableLayers.clear();
+
+	auto funcCreateWinows = [&](int _w, int _h) {
+		glfwInit();
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		m_windows = glfwCreateWindow(_w, _h, "Vulkan", nullptr, nullptr);
+		};
+	if (m_bGlfw) {
+		funcCreateWinows(m_width, m_height);
+		//m_windows = _windows;
+	}
 
 	ret = createInstance();
 	if (ret != VK_SUCCESS) {
@@ -51,7 +62,7 @@ VkResult Instance::init(bool _bGlfw, bool _bValid)
 	m_init = true;
 	return ret;
 }
-void Instance::clean()
+void VKInstance::clean()
 {
 	if (m_queueIndices.isCompleteGraphic()) {
 		vkDestroyCommandPool(m_device, m_graphicsCommandPool, nullptr);
@@ -75,7 +86,35 @@ void Instance::clean()
 		glfwTerminate();
 	}
 }
-VkResult Instance::createInstance()
+VkQueue VKInstance::getGraphicQueue(int _i)
+{
+	if (_i >= m_graphicQueues.size())
+		return VK_NULL_HANDLE;
+	return m_graphicQueues[_i];
+}
+VkQueue VKInstance::getPresentQueue(int _i)
+{
+	if (_i >= m_presentQueues.size())
+		return VK_NULL_HANDLE;
+	return m_presentQueues[_i];
+}
+VkQueue VKInstance::getComputeQueue(int _i)
+{
+	if (_i >= m_computeQueues.size())
+		return VK_NULL_HANDLE;
+	return m_computeQueues[_i];
+}
+uint32_t VKInstance::getMemoryTypeIndex(uint32_t _typeBits, VkMemoryPropertyFlags _properties)
+{
+	for (uint32_t i = 0; i < m_memProperties.memoryTypeCount; ++i) {
+		if ((_typeBits & 1) == 1)
+			if ((m_memProperties.memoryTypes[i].propertyFlags & _properties) == _properties)
+				return i;
+		_typeBits >>= 1;
+	}
+	return 0;
+}
+VkResult VKInstance::createInstance()
 {
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -145,14 +184,8 @@ VkResult Instance::createInstance()
 	}
 	return(vkCreateInstance(&createInfo, nullptr, &m_instance));
 }
-VkResult Instance::createPhysicalDevice()
+VkResult VKInstance::createPhysicalDevice()
 {
-	auto funcCreateWinows = [&](int _w, int _h) {
-		glfwInit();
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-		m_windows = glfwCreateWindow(_w, _h, "Vulkan", nullptr, nullptr);
-		};
 	auto createSurface = [&](VkInstance _instance, GLFWwindow* _windows)->bool {
 		if (glfwCreateWindowSurface(_instance, _windows, nullptr, &m_surface) != VK_SUCCESS)
 			return false;
@@ -240,7 +273,6 @@ VkResult Instance::createPhysicalDevice()
 		};
 	if (m_bGlfw) {
 		m_enableDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		funcCreateWinows(m_width, m_height);
 		createSurface(m_instance, m_windows);
 	}
 	uint32_t deviceCnt = 0;
@@ -262,7 +294,7 @@ VkResult Instance::createPhysicalDevice()
 		return VK_ERROR_INITIALIZATION_FAILED;
 	return VK_SUCCESS;
 }
-VkResult Instance::createDeviceAndQueue()
+VkResult VKInstance::createDeviceAndQueue()
 {
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFailies = { m_queueIndices.graphicsFamily.value(), m_queueIndices.presentFamily.value(), m_queueIndices.computeFamily.value() };
@@ -321,7 +353,7 @@ VkResult Instance::createDeviceAndQueue()
 	}
 	return ret;
 }
-VkResult Instance::createCommandPool()
+VkResult VKInstance::createCommandPool()
 {
 	VkCommandPoolCreateInfo cmdPoolCreateInfo{};
 	cmdPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -368,6 +400,11 @@ VkResult Instance::createCommandPool()
 		}
 	}
 	return ret;
+}
+
+VULKAN_LYJ_API VKInstance* GetLYJVKInstance()
+{
+	return VKInstance::GetVKInstance();
 }
 
 NSP_VULKAN_LYJ_END

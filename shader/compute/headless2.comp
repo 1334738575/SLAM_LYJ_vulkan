@@ -1,16 +1,18 @@
 #version 450
+layout(local_size_x=32,local_size_y=1,local_size_z=1)in;
 
-layout(set=1,binding=2)buffer Data{
+layout(binding=0) uniform UBO
+{
+	uint dataSize;
+} ubo;
+
+layout(std430, binding=1)buffer Data{
 	uint values[];
 };
-layout(set=1,binding=3)buffer Data2{
+layout(std430, binding=2)buffer Data2{
 	uint values2[];
 };
-layout(set=2,binding=4)uniform UBO{
-	uint dataSize;
-}ubo;
 
-layout(local_size_x=32,local_size_y=1,local_size_z=1)in;
 
 uint fibonacci(uint n){
 	if(n<=1){
