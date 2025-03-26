@@ -402,6 +402,42 @@ VkResult VKInstance::createCommandPool()
 	return ret;
 }
 
+
+
+
+VKFence::VKFence()
+{
+	m_device = GetLYJVKInstance()->m_device;
+	VkFenceCreateInfo fenceCreateInfo{};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	vkCreateFence(m_device, &fenceCreateInfo, nullptr, &m_fence);
+}
+VKFence::~VKFence()
+{
+	vkDestroyFence(m_device, m_fence, nullptr);
+}
+inline VkFence VKFence::ptr() { return m_fence; };
+inline void VKFence::wait() { vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, UINT64_MAX); };
+inline void VKFence::reset() { vkResetFences(m_device, 1, &m_fence); };
+
+
+
+
+VKSemaphore::VKSemaphore()
+{
+	m_device = GetLYJVKInstance()->m_device;
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &m_semaphore);
+}
+VKSemaphore::~VKSemaphore()
+{
+	vkDestroySemaphore(m_device, m_semaphore, nullptr);
+}
+inline VkSemaphore VKSemaphore::ptr() { return m_semaphore; }
+
+
+
 VULKAN_LYJ_API VKInstance* GetLYJVKInstance()
 {
 	return VKInstance::GetVKInstance();

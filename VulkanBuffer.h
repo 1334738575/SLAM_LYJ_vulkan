@@ -24,14 +24,15 @@ public:
 	~VKBufferAbr();
 
 	void resize(VkDeviceSize _size);
-	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE)=0;
-	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE)=0;
+	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence=nullptr)=0;
+	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
 	void destroy(bool _bf=true, bool _mem=true);
 	inline VkBuffer& getBuffer() { return m_buffer; };
 	inline VkDescriptorBufferInfo* getBufferInfo() { return &m_bufferInfo; };
 	inline VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; };
 	inline VkBufferUsageFlags& getBufferUsageFlags() { return m_usageFlags; };
-	inline BUFFERTYPE getType() { return m_type; }
+	inline BUFFERTYPE getType() { return m_type; };
+	inline VkDeviceSize getSize() { return m_size; };
 
 protected:
 	VkResult createVkBuffer();
@@ -41,7 +42,7 @@ protected:
 	void setupDescriptor(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
 protected:
-	BUFFERTYPE m_type = BUFFERTYPE::DEPTH;
+	BUFFERTYPE m_type = BUFFERTYPE::DEFAULT;
 	VkDevice m_device = VK_NULL_HANDLE;
 	VkBufferUsageFlags m_usageFlags{};
 	VkMemoryPropertyFlags m_memoryPropertyFlags{};
@@ -64,8 +65,8 @@ public:
 	~VKBufferTrans();
 
 	// 通过 VKBufferAbr 继承
-	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE) override;
-	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE) override;
+	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 
 private:
 	VkResult mapGPU2CPU(VkDeviceSize _size = VK_WHOLE_SIZE, VkDeviceSize _offset = 0);
@@ -86,8 +87,8 @@ public:
 	~VKBufferDevice();
 
 	// 通过 VKBufferAbr 继承
-	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE) override;
-	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE) override;
+	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 
 private:
 

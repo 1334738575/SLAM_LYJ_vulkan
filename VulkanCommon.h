@@ -123,6 +123,41 @@ public:
 
 
 
+
+/// <summary>
+/// synchronous cpu and current queue
+/// </summary>
+class VULKAN_LYJ_API VKFence
+{
+public:
+	VKFence();
+	~VKFence();
+	VkFence ptr();
+	void wait();
+	void reset();
+private:
+	VkFence m_fence = VK_NULL_HANDLE;
+	VkDevice m_device = VK_NULL_HANDLE;
+};
+
+
+
+
+/// <summary>
+/// synchronous deference queue
+/// </summary>
+class VULKAN_LYJ_API VKSemaphore
+{
+public:
+	VKSemaphore();
+	~VKSemaphore();
+	VkSemaphore ptr();
+private:
+	VkSemaphore m_semaphore = VK_NULL_HANDLE;
+	VkDevice m_device = VK_NULL_HANDLE;
+};
+
+
 VULKAN_LYJ_API VKInstance* GetLYJVKInstance();
 
 

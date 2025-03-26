@@ -1,6 +1,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanCommon.h"
-
+#include "VulkanImplement.h"
+#include "VulkanCommand.h"
 
 NSP_VULKAN_LYJ_BEGIN
 
@@ -97,7 +98,7 @@ VKBufferTrans::VKBufferTrans()
 }
 VKBufferTrans::~VKBufferTrans()
 {}
-void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue)
+void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
@@ -105,7 +106,7 @@ void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue)
 	flush(_size);
 	unmapGPU2CPU();
 }
-void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue)
+void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
@@ -139,7 +140,7 @@ VKBufferDevice::VKBufferDevice()
 }
 VKBufferDevice::~VKBufferDevice()
 {}
-void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue)
+void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE) {
 		std::cout << "need queue!" << std::endl;
@@ -150,82 +151,64 @@ void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue)
 		m_bufferCopy.reset(new VKBufferTrans());
 	m_bufferCopy->upload(_size, _data);
 
-	auto cmdPool = GetLYJVKInstance()->m_computeCommandPool;
+	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrierSrc(
+		{ m_bufferCopy->getBuffer() },
+		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrierDst(
+		{ m_buffer },
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_buffer, m_bufferCopy->getSize());
+	LYJ_VK::VKImp vkImp(0);
+	vkImp.setCmds({ &cmdBufferBarrierSrc, &cmdTransfer, &cmdBufferBarrierDst });
+	vkImp.run(_queue, _fence);
 
-	VkCommandBufferAllocateInfo cmdAllocInfo{};
-	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdAllocInfo.commandPool = cmdPool;
-	cmdAllocInfo.commandBufferCount = 1;
-	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	//auto cmdPool = GetLYJVKInstance()->m_computeCommandPool;
 
-	VkCommandBuffer vkCmdBuffer;
-	VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &vkCmdBuffer));
-	VkCommandBufferBeginInfo cmdBeginInfo{};
-	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VK_CHECK_RESULT(vkBeginCommandBuffer(vkCmdBuffer, &cmdBeginInfo));
+	//VkCommandBufferAllocateInfo cmdAllocInfo{};
+	//cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	//cmdAllocInfo.commandPool = cmdPool;
+	//cmdAllocInfo.commandBufferCount = 1;
+	//cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-	VkBufferCopy bufferCopy{};
-	bufferCopy.size = m_size;
-	vkCmdCopyBuffer(vkCmdBuffer, m_bufferCopy->getBuffer(), m_buffer, 1, &bufferCopy);
+	//VkCommandBuffer vkCmdBuffer;
+	//VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &vkCmdBuffer));
+	//VkCommandBufferBeginInfo cmdBeginInfo{};
+	//cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	//VK_CHECK_RESULT(vkBeginCommandBuffer(vkCmdBuffer, &cmdBeginInfo));
 
-	VK_CHECK_RESULT(vkEndCommandBuffer(vkCmdBuffer));
-	
-	VkFence fence;
-	VkFenceCreateInfo fenceCreateInfo{};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCreateInfo.flags = 0;
-	VK_CHECK_RESULT(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &fence));
+	//cmdBufferBarrierSrc.record(vkCmdBuffer);
+	//VkBufferCopy bufferCopy{};
+	//bufferCopy.size = m_size;
+	//vkCmdCopyBuffer(vkCmdBuffer, m_bufferCopy->getBuffer(), m_buffer, 1, &bufferCopy);
+	//cmdBufferBarrierDst.record(vkCmdBuffer);
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &vkCmdBuffer;
-	VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, fence));
-	VK_CHECK_RESULT(vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX));
+	//VK_CHECK_RESULT(vkEndCommandBuffer(vkCmdBuffer));
+	//
+	//VkSubmitInfo submitInfo{};
+	//submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	//submitInfo.commandBufferCount = 1;
+	//submitInfo.pCommandBuffers = &vkCmdBuffer;
+	//VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, nullptr));
 
-	vkFreeCommandBuffers(m_device, cmdPool, 1, &vkCmdBuffer);
+	//vkFreeCommandBuffers(m_device, cmdPool, 1, &vkCmdBuffer);
 }
-void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue)
+void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE) {
 		std::cout << "need queue!" << std::endl;
 		return;
 	}
-
-	auto cmdPool = GetLYJVKInstance()->m_computeCommandPool;
-
-	VkCommandBufferAllocateInfo cmdAllocInfo{};
-	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdAllocInfo.commandPool = cmdPool;
-	cmdAllocInfo.commandBufferCount = 1;
-	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-
-	VkCommandBuffer vkCmdBuffer;
-	VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &vkCmdBuffer));
-	VkCommandBufferBeginInfo cmdBeginInfo{};
-	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VK_CHECK_RESULT(vkBeginCommandBuffer(vkCmdBuffer, &cmdBeginInfo));
-
-	VkBufferCopy bufferCopy{};
-	bufferCopy.size = m_size;
-	vkCmdCopyBuffer(vkCmdBuffer, m_buffer, m_bufferCopy->getBuffer(), 1, &bufferCopy);
-
-	VK_CHECK_RESULT(vkEndCommandBuffer(vkCmdBuffer));
-
-	VkFence fence;
-	VkFenceCreateInfo fenceCreateInfo{};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCreateInfo.flags = 0;
-	VK_CHECK_RESULT(vkCreateFence(m_device, &fenceCreateInfo, nullptr, &fence));
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &vkCmdBuffer;
-	VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, fence));
-	VK_CHECK_RESULT(vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX));
-	vkFreeCommandBuffers(m_device, cmdPool, 1, &vkCmdBuffer);
-
+	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier(
+		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
+	LYJ_VK::VKImp vkImp(0);
+	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer });
+	VKFence fence;
+	vkImp.run(_queue, fence.ptr());
+	fence.wait();
 	if (m_bufferCopy == nullptr)
 		m_bufferCopy.reset(new VKBufferTrans());
 	m_bufferCopy->download(_size, _data);
