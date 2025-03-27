@@ -113,6 +113,10 @@ private:
 	// Í¨¹ý VKPipelineAbr ¼Ì³Ð
 	VkResult createPipeline(const std::string& _path) override;
 
+private:
+	VKBufferAbr* m_vertexBuffer = nullptr;
+	VKBufferAbr* m_indexBuffer = nullptr;
+	uint32_t m_indexCount = 0;
 };
 
 

@@ -37,9 +37,9 @@ public:
 	VKCommandBufferBarrier(
 		std::vector<VkBuffer> _bufferfs,
 		VkAccessFlags _srcMask=VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-		VkAccessFlags _dstMask=VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_READ_BIT,
-		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+		VkAccessFlags _dstMask= VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
 		);
 	~VKCommandBufferBarrier();
 
@@ -63,9 +63,9 @@ class VULKAN_LYJ_API VKCommandMemoryBarrier : public VKCommandAbr
 public:
 	VKCommandMemoryBarrier(
 		VkAccessFlags _srcMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-		VkAccessFlags _dstMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_READ_BIT,
-		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+		VkAccessFlags _dstMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
 	);
 	~VKCommandMemoryBarrier();
 

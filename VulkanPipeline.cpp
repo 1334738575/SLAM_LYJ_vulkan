@@ -192,6 +192,13 @@ inline VkResult VKPipelineGraphics::createPipeline(const std::string& _path)
 }
 void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 {
+	vkCmdBindDescriptorSets(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+	vkCmdBindPipeline(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	//vkCmdDraw(m_cmdBuffer, 3, 1, 0, 0);
+	VkDeviceSize offsets[1] = { 0 };
+	vkCmdBindVertexBuffers(_cmdBuffer, 0, 1, &m_vertexBuffer->getBuffer(), offsets);
+	vkCmdBindIndexBuffer(_cmdBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(_cmdBuffer, m_indexCount, 1, 0, 0, 0);
 }
 
 

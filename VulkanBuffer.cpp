@@ -106,13 +106,14 @@ void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFe
 	flush(_size);
 	unmapGPU2CPU();
 }
-void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+void* VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
 	invalidate(_size);
 	copyTo(_data, _size, false);
 	unmapGPU2CPU();
+	return m_mapped;
 }
 VkResult VKBufferTrans::mapGPU2CPU(VkDeviceSize _size, VkDeviceSize _offset) {
 	return vkMapMemory(m_device, m_memory, _offset, _size, 0, &m_mapped);
@@ -163,55 +164,26 @@ void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkF
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdBufferBarrierSrc, &cmdTransfer, &cmdBufferBarrierDst });
 	vkImp.run(_queue, _fence);
-
-	//auto cmdPool = GetLYJVKInstance()->m_computeCommandPool;
-
-	//VkCommandBufferAllocateInfo cmdAllocInfo{};
-	//cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	//cmdAllocInfo.commandPool = cmdPool;
-	//cmdAllocInfo.commandBufferCount = 1;
-	//cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-
-	//VkCommandBuffer vkCmdBuffer;
-	//VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &vkCmdBuffer));
-	//VkCommandBufferBeginInfo cmdBeginInfo{};
-	//cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	//VK_CHECK_RESULT(vkBeginCommandBuffer(vkCmdBuffer, &cmdBeginInfo));
-
-	//cmdBufferBarrierSrc.record(vkCmdBuffer);
-	//VkBufferCopy bufferCopy{};
-	//bufferCopy.size = m_size;
-	//vkCmdCopyBuffer(vkCmdBuffer, m_bufferCopy->getBuffer(), m_buffer, 1, &bufferCopy);
-	//cmdBufferBarrierDst.record(vkCmdBuffer);
-
-	//VK_CHECK_RESULT(vkEndCommandBuffer(vkCmdBuffer));
-	//
-	//VkSubmitInfo submitInfo{};
-	//submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	//submitInfo.commandBufferCount = 1;
-	//submitInfo.pCommandBuffers = &vkCmdBuffer;
-	//VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, nullptr));
-
-	//vkFreeCommandBuffers(m_device, cmdPool, 1, &vkCmdBuffer);
 }
-void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+void* VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE) {
 		std::cout << "need queue!" << std::endl;
-		return;
+		return nullptr;
 	}
-	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier(
-		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
+	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer });
+	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
+	//vkImp.run(_queue, _fence);
 	VKFence fence;
 	vkImp.run(_queue, fence.ptr());
 	fence.wait();
 	if (m_bufferCopy == nullptr)
 		m_bufferCopy.reset(new VKBufferTrans());
-	m_bufferCopy->download(_size, _data);
+	void* ret = m_bufferCopy->download(_size, _data);
+	return ret;
 }
 
 

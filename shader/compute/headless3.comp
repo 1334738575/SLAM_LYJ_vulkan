@@ -13,28 +13,13 @@ layout(std430, binding=2)buffer Data2{
 	uint values2[];
 };
 
-
-uint fibonacci(uint n){
-	if(n<=1){
-		return n;
-	}
-	uint curr=1;
-	uint prev=1;
-	for(uint i=2;i<n;++i){
-		uint temp=curr;
-		curr+=prev;
-		prev=temp;
-	}
-	return curr;
-}
-
 void main()
 {
 	uint index=gl_GlobalInvocationID.x;
 	if(index>=ubo.dataSize)
 		return;
-	values[index]=fibonacci(values2[index]);
-	values2[index]=ubo.dataSize;
+	values[index] = values2[index];
+	values2[index] += ubo.dataSize;
 	return;
 }
 

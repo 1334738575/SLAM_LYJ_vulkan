@@ -25,7 +25,7 @@ public:
 
 	void resize(VkDeviceSize _size);
 	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence=nullptr)=0;
-	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
+	virtual void* download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
 	void destroy(bool _bf=true, bool _mem=true);
 	inline VkBuffer& getBuffer() { return m_buffer; };
 	inline VkDescriptorBufferInfo* getBufferInfo() { return &m_bufferInfo; };
@@ -66,7 +66,7 @@ public:
 
 	// 通过 VKBufferAbr 继承
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void* download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 
 private:
 	VkResult mapGPU2CPU(VkDeviceSize _size = VK_WHOLE_SIZE, VkDeviceSize _offset = 0);
@@ -88,7 +88,7 @@ public:
 
 	// 通过 VKBufferAbr 继承
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void* download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 
 private:
 
