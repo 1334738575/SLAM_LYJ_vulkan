@@ -4,6 +4,9 @@
 
 #include "VulkanCommon.h"
 
+namespace cv {
+	class Mat;
+}
 
 NSP_VULKAN_LYJ_BEGIN
 
@@ -127,6 +130,13 @@ public:
 	VKCommandTransfer(VkBuffer _srcBuffer, VkImage _dstImage,
 		VkExtent3D _size, VkImageSubresourceRange _subResourceRange,
 		VkDeviceSize _offsetSrc = 0, VkOffset3D _offsetDst = { 0,0,0 });
+	VKCommandTransfer(VkImage _srcImage, VkBuffer _dstBuffer,
+		VkExtent3D _size, VkImageSubresourceRange _subResourceRange,
+		VkOffset3D _offsetSrc = { 0,0,0 }, VkDeviceSize _offsetDst = 0);
+	VKCommandTransfer(VkImage _srcImage, VkImage _dstImage,
+		VkExtent3D _size, 
+		VkImageSubresourceRange _srcSubResourceRange, VkImageSubresourceRange _dstSubResourceRange,
+		VkOffset3D _offsetSrc = { 0,0,0 }, VkOffset3D _offsetDst ={ 0,0,0 });
 	~VKCommandTransfer();
 
 
@@ -141,10 +151,13 @@ private:
 	VkDeviceSize m_offsetSrc = 0;
 	VkDeviceSize m_offsetDst = 0;
 
+	VkImage m_srcImage = VK_NULL_HANDLE;
+	VkImageSubresourceRange m_srcSubResourceRange{};
+	VkOffset3D m_srcImgOffset{};
 	VkImage m_dstImage = VK_NULL_HANDLE;
 	VkImageSubresourceRange m_dstSubResourceRange{};
 	VkExtent3D m_imgSize{};
-	VkOffset3D m_imgOffset{};
+	VkOffset3D m_dstImgOffset{};
 };
 
 

@@ -141,10 +141,27 @@ VKCommandTransfer::VKCommandTransfer(VkBuffer _srcBuffer, VkBuffer _dstBuffer,
 VKCommandTransfer::VKCommandTransfer(VkBuffer _srcBuffer, VkImage _dstImage,
     VkExtent3D _size, VkImageSubresourceRange _subResourceRange,
     VkDeviceSize _offsetSrc, VkOffset3D _offsetDst)
-	:m_srcBuffer(_srcBuffer), m_dstImage(_dstImage), m_imgSize(_size), m_dstSubResourceRange(_subResourceRange), m_offsetSrc(_offsetSrc), m_imgOffset(_offsetDst)
+	:m_srcBuffer(_srcBuffer), m_dstImage(_dstImage), m_imgSize(_size), m_dstSubResourceRange(_subResourceRange), m_offsetSrc(_offsetSrc), m_dstImgOffset(_offsetDst)
 {
     m_type = CMDTYPE::TRANSFER;
     m_transType = TRANSTYPE::BUFFER2IMAGE;
+}
+VKCommandTransfer::VKCommandTransfer(VkImage _srcImage, VkBuffer _dstBuffer,
+    VkExtent3D _size, VkImageSubresourceRange _subResourceRange,
+    VkOffset3D _offsetSrc, VkDeviceSize _offsetDst)
+    :m_srcImage(_srcImage), m_dstBuffer(_dstBuffer), m_imgSize(_size), m_srcSubResourceRange(_subResourceRange), m_srcImgOffset(_offsetSrc), m_offsetDst(_offsetDst)
+{
+    m_type = CMDTYPE::TRANSFER;
+    m_transType = TRANSTYPE::IMAGE2BUFFER;
+}
+VKCommandTransfer::VKCommandTransfer(VkImage _srcImage, VkImage _dstImage,
+    VkExtent3D _size,
+    VkImageSubresourceRange _srcSubResourceRange, VkImageSubresourceRange _dstSubResourceRange,
+    VkOffset3D _offsetSrc, VkOffset3D _offsetDst)
+    :m_srcImage(_srcImage), m_dstImage(_dstImage), m_imgSize(_size), m_srcSubResourceRange(_srcSubResourceRange), m_dstSubResourceRange(_dstSubResourceRange), m_srcImgOffset(_offsetSrc), m_dstImgOffset(_offsetDst)
+{
+    m_type = CMDTYPE::TRANSFER;
+    m_transType = TRANSTYPE::IMAGE2IMAGE;
 }
 VKCommandTransfer::~VKCommandTransfer()
 {}
@@ -169,15 +186,41 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         bufferImageCopy.imageSubresource.mipLevel = m_dstSubResourceRange.baseMipLevel;
         bufferImageCopy.imageSubresource.baseArrayLayer = m_dstSubResourceRange.baseArrayLayer;
         bufferImageCopy.imageSubresource.layerCount = m_dstSubResourceRange.layerCount;
-        bufferImageCopy.imageOffset = m_imgOffset;
+        bufferImageCopy.imageOffset = m_dstImgOffset;
         bufferImageCopy.imageExtent = m_imgSize;
         vkCmdCopyBufferToImage(_cmdBuffer, m_srcBuffer, m_dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferImageCopy);
         break;
     }
-	case TRANSTYPE::IMAGE2BUFFER:
-		break;
-	case TRANSTYPE::IMAGE2IMAGE:
-		break;
+    case TRANSTYPE::IMAGE2BUFFER: {
+        VkBufferImageCopy imageBufferCopy{};
+        imageBufferCopy.bufferOffset = m_offsetDst;
+        imageBufferCopy.bufferRowLength = 0;//meas row length in texels
+        imageBufferCopy.bufferImageHeight = 0;
+        imageBufferCopy.imageSubresource.aspectMask = m_srcSubResourceRange.aspectMask;
+        imageBufferCopy.imageSubresource.mipLevel = m_srcSubResourceRange.baseMipLevel;
+        imageBufferCopy.imageSubresource.baseArrayLayer = m_srcSubResourceRange.baseArrayLayer;
+        imageBufferCopy.imageSubresource.layerCount = m_srcSubResourceRange.layerCount;
+        imageBufferCopy.imageOffset = m_srcImgOffset;
+        imageBufferCopy.imageExtent = m_imgSize;
+        vkCmdCopyImageToBuffer(_cmdBuffer, m_srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_dstBuffer, 1, &imageBufferCopy);
+        break;
+    }
+    case TRANSTYPE::IMAGE2IMAGE: {
+        VkImageCopy imageCopy{};
+        imageCopy.extent = m_imgSize;
+        imageCopy.srcOffset = m_srcImgOffset;
+        imageCopy.dstOffset = m_dstImgOffset;
+        imageCopy.srcSubresource.aspectMask = m_srcSubResourceRange.aspectMask;
+        imageCopy.srcSubresource.baseArrayLayer = m_srcSubResourceRange.baseArrayLayer;
+        imageCopy.srcSubresource.layerCount = m_srcSubResourceRange.layerCount;
+        imageCopy.srcSubresource.mipLevel = m_srcSubResourceRange.baseMipLevel;
+        imageCopy.dstSubresource.aspectMask = m_dstSubResourceRange.aspectMask;
+        imageCopy.dstSubresource.baseArrayLayer = m_dstSubResourceRange.baseArrayLayer;
+        imageCopy.dstSubresource.layerCount = m_dstSubResourceRange.layerCount;
+        imageCopy.dstSubresource.mipLevel = m_dstSubResourceRange.baseMipLevel;
+        vkCmdCopyImage(_cmdBuffer, m_srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy);
+        break;
+    }
     default:
         break;
     }

@@ -155,8 +155,13 @@ class VULKAN_LYJ_API VKBufferImage : public VKBufferAbr
 {
 public:
 	VKBufferImage() = delete;
-	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c);
+	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format);
+	VKBufferImage(VkImage _image, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format); //for tmp
 	~VKBufferImage();
+
+	inline const uint32_t getWidth() const { return m_width; };
+	inline const uint32_t getHeight() const { return m_height; };
+	inline const uint32_t getChannels() const { return m_channels; };
 
 	// Í¨¹ý VKBufferAbr ¼Ì³Ð
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
@@ -172,6 +177,8 @@ protected:
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_channels = 0;
+	uint32_t m_step = 1;
+	VkFormat m_format;
 	VkImageSubresourceRange m_subResourceRange{};
 };
 

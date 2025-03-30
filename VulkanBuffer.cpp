@@ -260,8 +260,8 @@ VKBufferIndex::~VKBufferIndex()
 
 
 
-VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c)
-	: m_width(_w), m_height(_h), m_channels(_c)
+VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format)
+	: m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
 {
 	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -271,7 +271,7 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c)
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageInfo.format = m_format;//VK_FORMAT_R8G8B8A8_UNORM;
 	imageInfo.mipLevels = 1; //纹理分辨率层级，一次减半
 	imageInfo.arrayLayers = 1;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -326,6 +326,24 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c)
 	viewCreateInfo.image = m_image;
 	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
 }
+VKBufferImage::VKBufferImage(VkImage _image, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format)
+	:m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
+{
+	m_image = _image;
+	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	m_type = BUFFERTYPE::TEXTURE;
+
+	m_size = m_width * m_height * m_channels;
+
+	m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	m_subResourceRange.baseMipLevel = 0;
+	m_subResourceRange.baseArrayLayer = 0;
+	m_subResourceRange.levelCount = 1;
+	m_subResourceRange.layerCount = 1;
+
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
 VKBufferImage::~VKBufferImage()
 {}
 void VKBufferImage::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
@@ -347,15 +365,13 @@ void VKBufferImage::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFe
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
 		{ m_image },
 		{ m_subResourceRange },
-		0, VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		0, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
 		{ m_image },
 		{ m_subResourceRange },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_image,
 		{ m_width, m_height, 0 }, m_subResourceRange);
 	LYJ_VK::VKImp vkImp(0);
@@ -367,7 +383,30 @@ void VKBufferImage::download(VkDeviceSize _size, void* _data, VkQueue _queue, Vk
 }
 void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
-	return nullptr;
+	if (_queue == VK_NULL_HANDLE) {
+		std::cout << "need queue!" << std::endl;
+		return nullptr;
+	}
+	m_bufferCopy.reset(new VKBufferTrans());
+	void* ret = m_bufferCopy->download(_size);
+
+	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
+		{ m_image },
+		{ m_subResourceRange },
+		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_MAX_ENUM, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
+		{ m_image },
+		{ m_subResourceRange },
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
+		{ m_width, m_height, 0 }, m_subResourceRange);
+
+	LYJ_VK::VKImp vkImp(0);
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2 });
+	vkImp.run(_queue, _fence);
+	return ret;
 }
 void VKBufferImage::releaseBufferCopy()
 {
@@ -375,6 +414,8 @@ void VKBufferImage::releaseBufferCopy()
 }
 void VKBufferImage::destroy(bool _bf, bool _mem)
 {
+	if (m_bufferCopy)
+		m_bufferCopy->destroy();
 	if (m_image && _bf) {
 		vkDestroyImage(m_device, m_image, nullptr);
 		m_size = 0;
