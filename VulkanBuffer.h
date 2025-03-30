@@ -25,14 +25,18 @@ public:
 
 	void resize(VkDeviceSize _size);
 	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence=nullptr)=0;
-	virtual void* download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
-	void destroy(bool _bf=true, bool _mem=true);
-	inline VkBuffer& getBuffer() { return m_buffer; };
-	inline VkDescriptorBufferInfo* getBufferInfo() { return &m_bufferInfo; };
-	inline VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; };
-	inline VkBufferUsageFlags& getBufferUsageFlags() { return m_usageFlags; };
-	inline BUFFERTYPE getType() { return m_type; };
-	inline VkDeviceSize getSize() { return m_size; };
+	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
+	virtual void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
+	virtual void releaseBufferCopy()=0;
+	virtual void destroy(bool _bf=true, bool _mem=true)=0;
+	VkBuffer& getBuffer() { return m_buffer; };
+	VkDescriptorBufferInfo* getBufferInfo() { return &m_bufferInfo; };
+	VkImage& getImage() { return m_image; };
+	VkDescriptorImageInfo* getImageInfo() { return &m_imageInfo; };
+	VkBufferUsageFlags& getBufferUsageFlags() { return m_usageFlags; };
+	VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; };
+	BUFFERTYPE getType() { return m_type; };
+	VkDeviceSize getSize() { return m_size; };
 
 protected:
 	VkResult createVkBuffer();
@@ -47,11 +51,17 @@ protected:
 	VkBufferUsageFlags m_usageFlags{};
 	VkMemoryPropertyFlags m_memoryPropertyFlags{};
 	VkDeviceSize m_size = 0;
-	VkBuffer m_buffer = VK_NULL_HANDLE;
 	VkDeviceSize m_capacity = 0;
 	VkDeviceMemory m_memory = VK_NULL_HANDLE;
 
+	//buffer
+	VkBuffer m_buffer = VK_NULL_HANDLE;
 	VkDescriptorBufferInfo m_bufferInfo{};
+
+	//image
+	VkImage m_image = VK_NULL_HANDLE;
+	VkDescriptorImageInfo m_imageInfo{};
+
 	VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
 };
 
@@ -66,8 +76,10 @@ public:
 
 	// 通过 VKBufferAbr 继承
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-	void* download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void releaseBufferCopy() override {};
+	void destroy(bool _bf = true, bool _mem = true) override;
 private:
 	VkResult mapGPU2CPU(VkDeviceSize _size = VK_WHOLE_SIZE, VkDeviceSize _offset = 0);
 	void copyTo(void* _data, VkDeviceSize _size, bool _isFromoCPU);
@@ -88,8 +100,10 @@ public:
 
 	// 通过 VKBufferAbr 继承
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-	void* download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void releaseBufferCopy() override;
+	void destroy(bool _bf = true, bool _mem = true) override;
 private:
 
 
@@ -135,6 +149,30 @@ public:
 
 private:
 
+};
+
+class VULKAN_LYJ_API VKBufferImage : public VKBufferAbr
+{
+public:
+	VKBufferImage() = delete;
+	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c);
+	~VKBufferImage();
+
+	// 通过 VKBufferAbr 继承
+	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void releaseBufferCopy() override;
+	void destroy(bool _bf = true, bool _mem = true) override;
+private:
+
+
+protected:
+	std::shared_ptr<VKBufferTrans> m_bufferCopy = nullptr;
+	uint32_t m_width = 0;
+	uint32_t m_height = 0;
+	uint32_t m_channels = 0;
+	VkImageSubresourceRange m_subResourceRange{};
 };
 
 

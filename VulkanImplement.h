@@ -21,7 +21,7 @@ public:
 		std::vector<VkSemaphore> _waitSemaphores= std::vector<VkSemaphore>(),
 		std::vector<VkSemaphore> _signalSemaphores= std::vector<VkSemaphore>(),
 		const VkPipelineStageFlags* _waitStageMask= nullptr);
-
+	void destroy();
 private:
 	bool build();
 
@@ -43,9 +43,11 @@ public:
 	VKImpPresent();
 	~VKImpPresent();
 
-
+	VkResult present(VkQueue _queue,
+		std::vector<VkSwapchainKHR>& _swapChains, std::vector<uint32_t>& _imageIndexs,
+		std::vector<VkSemaphore>& _waitSemaphores);
 private:
-	std::vector<VkSwapchainKHR> m_swapChains;
+	//std::vector<VkSwapchainKHR> m_swapChains;
 };
 
 

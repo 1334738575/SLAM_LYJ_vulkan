@@ -69,6 +69,7 @@ public:
 		static VKInstance instance;
 		return &instance;
 	}
+	//inline void pollEvents() { glfwPollEvents(); };
 
 	bool isInited();
 	VkResult init(bool _bGlfw=false, GLFWwindow* _windows=nullptr, bool _bValid=false);
@@ -119,6 +120,18 @@ public:
 	VkCommandPool m_graphicsCommandPool;
 	VkCommandPool m_presentCommandPool;
 	VkCommandPool m_computeCommandPool;
+};
+
+
+
+class Abr
+{
+public:
+	Abr();
+	~Abr();
+	virtual void destroy() = 0;
+private:
+
 };
 
 

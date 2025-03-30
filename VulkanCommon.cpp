@@ -31,8 +31,10 @@ VkResult VKInstance::init(bool _bGlfw, GLFWwindow* _windows, bool _bValid)
 		m_windows = glfwCreateWindow(_w, _h, "Vulkan", nullptr, nullptr);
 		};
 	if (m_bGlfw) {
-		funcCreateWinows(m_width, m_height);
-		//m_windows = _windows;
+		if(_windows == nullptr)
+			funcCreateWinows(m_width, m_height);
+		else
+			m_windows = _windows;
 	}
 
 	ret = createInstance();
@@ -186,10 +188,8 @@ VkResult VKInstance::createInstance()
 }
 VkResult VKInstance::createPhysicalDevice()
 {
-	auto createSurface = [&](VkInstance _instance, GLFWwindow* _windows)->bool {
-		if (glfwCreateWindowSurface(_instance, _windows, nullptr, &m_surface) != VK_SUCCESS)
-			return false;
-		return true;
+	auto createSurface = [&](VkInstance _instance, GLFWwindow* _windows)->VkResult {
+		return glfwCreateWindowSurface(_instance, _windows, nullptr, &m_surface);
 		};
 	auto funcFindQueueFamilies = [](VkPhysicalDevice device, std::vector<VkQueueFamilyProperties>& queueFamilies, VkSurfaceKHR surface=nullptr) -> QueueFamilyIndices {
 		QueueFamilyIndices queueIndices;
@@ -203,14 +203,21 @@ VkResult VKInstance::createPhysicalDevice()
 		for (const auto& queueFamily : queueFamilies) {
 			if ( (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !queueIndices.isCompleteGraphic())
 				queueIndices.graphicsFamily = i;
-			if (surface) {
-				vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-				if (presentSupport && !queueIndices.isCompletePresent())
-					queueIndices.presentFamily = i;
-			}
 			if ( (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && !queueIndices.isCompleteCompute())
 				queueIndices.computeFamily = i;
+			if (queueIndices.isCompleteGraphic() && queueIndices.isCompleteGraphic())
+				break;
 			++i;
+		}
+		if (surface && queueIndices.isCompleteGraphic()) {
+			for (const auto& queueFamily : queueFamilies) {
+				vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+				if (presentSupport && i != queueIndices.graphicsFamily.value()) {
+					queueIndices.presentFamily = i;
+					break;
+				}
+				++i;
+			}
 		}
 		return queueIndices;
 		};
@@ -244,7 +251,7 @@ VkResult VKInstance::createPhysicalDevice()
 		bool extensionsSupported = requiredExtensions.empty();
 		bool swapChainAdequate = false;
 		SwapChainSupportDetails details;
-		if (extensionsSupported) {
+		if (m_bGlfw && extensionsSupported && m_surface) {
 			details = funcQuerySwapChainSupport(device, m_surface);
 			swapChainAdequate = !details.formats.empty() && !details.presentModes.empty();
 		}
@@ -256,8 +263,8 @@ VkResult VKInstance::createPhysicalDevice()
 		vkGetPhysicalDeviceMemoryProperties(device, &memProperties);
 
 		bool ret = devProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && devFeature.geometryShader\
-			&& indices.isCompleteGraphic() && indices.isCompletePresent() && extensionsSupported && swapChainAdequate \
-			&& indices.isCompleteCompute();
+			&& indices.isCompleteGraphic() && indices.isCompleteCompute() &&
+			( !m_bGlfw || ( m_bGlfw && extensionsSupported && swapChainAdequate && indices.isCompletePresent()) );
 
 		if (ret) {
 			m_queueFamilies = queueFamilies;
@@ -273,7 +280,11 @@ VkResult VKInstance::createPhysicalDevice()
 		};
 	if (m_bGlfw) {
 		m_enableDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		createSurface(m_instance, m_windows);
+		VkResult ret = createSurface(m_instance, m_windows);
+		if (ret != VK_SUCCESS) {
+			std::cout << "create surface failed!" << std::endl;
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
 	}
 	uint32_t deviceCnt = 0;
 	vkEnumeratePhysicalDevices(m_instance, &deviceCnt, nullptr);
@@ -283,7 +294,6 @@ VkResult VKInstance::createPhysicalDevice()
 	}
 	std::vector<VkPhysicalDevice> devices(deviceCnt);
 	vkEnumeratePhysicalDevices(m_instance, &deviceCnt, devices.data());
-	m_enableDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	for (const auto& device : devices) {
 		if (funcDeviceSuitable(device)) {
 			m_physicalDevice = device;
@@ -297,7 +307,14 @@ VkResult VKInstance::createPhysicalDevice()
 VkResult VKInstance::createDeviceAndQueue()
 {
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<uint32_t> uniqueQueueFailies = { m_queueIndices.graphicsFamily.value(), m_queueIndices.presentFamily.value(), m_queueIndices.computeFamily.value() };
+	//std::set<uint32_t> uniqueQueueFailies = { m_queueIndices.graphicsFamily.value(), m_queueIndices.presentFamily.value(), m_queueIndices.computeFamily.value() };
+	std::set<uint32_t> uniqueQueueFailies;
+	if (m_queueIndices.graphicsFamily.has_value())
+		uniqueQueueFailies.insert(m_queueIndices.graphicsFamily.value());
+	if (m_queueIndices.presentFamily.has_value())
+		uniqueQueueFailies.insert(m_queueIndices.presentFamily.value());
+	if (m_queueIndices.computeFamily.has_value())
+		uniqueQueueFailies.insert(m_queueIndices.computeFamily.value());
 	float queuePriority = 1.0f;
 	for (uint32_t queueFamily : uniqueQueueFailies) {
 		VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -405,6 +422,15 @@ VkResult VKInstance::createCommandPool()
 
 
 
+Abr::Abr()
+{
+}
+Abr::~Abr()
+{
+}
+
+
+
 VKFence::VKFence()
 {
 	m_device = GetLYJVKInstance()->m_device;
@@ -414,7 +440,8 @@ VKFence::VKFence()
 }
 VKFence::~VKFence()
 {
-	vkDestroyFence(m_device, m_fence, nullptr);
+	if(m_fence)
+		vkDestroyFence(m_device, m_fence, nullptr);
 }
 inline VkFence VKFence::ptr() { return m_fence; };
 inline void VKFence::wait() { vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, UINT64_MAX); };
@@ -432,7 +459,8 @@ VKSemaphore::VKSemaphore()
 }
 VKSemaphore::~VKSemaphore()
 {
-	vkDestroySemaphore(m_device, m_semaphore, nullptr);
+	if(m_semaphore)
+		vkDestroySemaphore(m_device, m_semaphore, nullptr);
 }
 inline VkSemaphore VKSemaphore::ptr() { return m_semaphore; }
 

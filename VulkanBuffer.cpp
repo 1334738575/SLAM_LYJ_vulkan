@@ -31,17 +31,6 @@ void VKBufferAbr::resize(VkDeviceSize _size)
 		return destroy();
 	setupDescriptor(_size, 0);
 }
-void VKBufferAbr::destroy(bool _bf, bool _mem)
-{
-	if (m_buffer && _bf) {
-		vkDestroyBuffer(m_device, m_buffer, nullptr);
-		m_size = 0;
-	}
-	if (m_memory && _mem) {
-		vkFreeMemory(m_device, m_memory, nullptr);
-		m_capacity = 0;
-	}
-}
 VkResult VKBufferAbr::createVkBuffer()
 {
 	destroy(true, false);
@@ -93,7 +82,7 @@ void VKBufferAbr::setupDescriptor(VkDeviceSize size, VkDeviceSize offset) {
 VKBufferTrans::VKBufferTrans()
 {
 	m_usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	m_type = BUFFERTYPE::TRANSFER;
 }
 VKBufferTrans::~VKBufferTrans()
@@ -106,14 +95,31 @@ void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFe
 	flush(_size);
 	unmapGPU2CPU();
 }
-void* VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
 	invalidate(_size);
 	copyTo(_data, _size, false);
 	unmapGPU2CPU();
+	return;
+}
+void* VKBufferTrans::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+{
+	resize(_size);
+	mapGPU2CPU(_size, 0);
 	return m_mapped;
+}
+void VKBufferTrans::destroy(bool _bf, bool _mem)
+{
+	if (m_buffer && _bf) {
+		vkDestroyBuffer(m_device, m_buffer, nullptr);
+		m_size = 0;
+	}
+	if (m_memory && _mem) {
+		vkFreeMemory(m_device, m_memory, nullptr);
+		m_capacity = 0;
+	}
 }
 VkResult VKBufferTrans::mapGPU2CPU(VkDeviceSize _size, VkDeviceSize _offset) {
 	return vkMapMemory(m_device, m_memory, _offset, _size, 0, &m_mapped);
@@ -165,25 +171,56 @@ void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkF
 	vkImp.setCmds({ &cmdBufferBarrierSrc, &cmdTransfer, &cmdBufferBarrierDst });
 	vkImp.run(_queue, _fence);
 }
-void* VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE) {
 		std::cout << "need queue!" << std::endl;
-		return nullptr;
+		return;
+	}
+	if (m_bufferCopy == nullptr || _data == nullptr) {
+		return;
 	}
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
-	//vkImp.run(_queue, _fence);
 	VKFence fence;
 	vkImp.run(_queue, fence.ptr());
 	fence.wait();
-	if (m_bufferCopy == nullptr)
-		m_bufferCopy.reset(new VKBufferTrans());
-	void* ret = m_bufferCopy->download(_size, _data);
+	m_bufferCopy->download(_size, _data);
+	return;
+}
+void* VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+{
+	if (_queue == VK_NULL_HANDLE) {
+		std::cout << "need queue!" << std::endl;
+		return nullptr;
+	}
+	m_bufferCopy.reset(new VKBufferTrans());
+	void* ret = m_bufferCopy->download(_size);
+	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
+	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
+	LYJ_VK::VKImp vkImp(0);
+	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
+	vkImp.run(_queue, _fence);
 	return ret;
+}
+void VKBufferDevice::releaseBufferCopy()
+{
+	m_bufferCopy.reset();
+}
+void VKBufferDevice::destroy(bool _bf, bool _mem)
+{
+	if (m_buffer && _bf) {
+		vkDestroyBuffer(m_device, m_buffer, nullptr);
+		m_size = 0;
+	}
+	if (m_memory && _mem) {
+		vkFreeMemory(m_device, m_memory, nullptr);
+		m_capacity = 0;
+	}
 }
 
 
@@ -206,7 +243,7 @@ VKBufferUniform::~VKBufferUniform()
 
 VKBufferVertex::VKBufferVertex()
 {
-	m_usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	m_usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	m_type = BUFFERTYPE::VERTEX;
 }
 VKBufferVertex::~VKBufferVertex()
@@ -214,7 +251,7 @@ VKBufferVertex::~VKBufferVertex()
 
 VKBufferIndex::VKBufferIndex()
 {
-	m_usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	m_usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	m_type = BUFFERTYPE::INDEX;
 }
 VKBufferIndex::~VKBufferIndex()
@@ -222,6 +259,131 @@ VKBufferIndex::~VKBufferIndex()
 
 
 
-NSP_VULKAN_LYJ_END
 
+VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c)
+	: m_width(_w), m_height(_h), m_channels(_c)
+{
+	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	m_type = BUFFERTYPE::TEXTURE;
+
+	m_size = m_width * m_height * m_channels;
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageInfo.mipLevels = 1; //纹理分辨率层级，一次减半
+	imageInfo.arrayLayers = 1;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+	imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	imageInfo.extent.width = m_width;
+	imageInfo.extent.height = m_height;
+	imageInfo.extent.depth = 1;
+	VK_CHECK_RESULT(vkCreateImage(m_device, &imageInfo, nullptr, &m_image));
+	VkMemoryRequirements memRequirements{};
+	vkGetImageMemoryRequirements(m_device, m_image, &memRequirements);
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = GetLYJVKInstance()->getMemoryTypeIndex(memRequirements.memoryTypeBits, m_memoryPropertyFlags);
+	VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocInfo, nullptr, &m_memory));
+	VK_CHECK_RESULT(vkBindImageMemory(m_device, m_image, m_memory, 0));
+
+	m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	m_subResourceRange.baseMipLevel = 0;
+	m_subResourceRange.baseArrayLayer = 0;
+	m_subResourceRange.levelCount = 1;
+	m_subResourceRange.layerCount = 1;
+
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.maxAnisotropy = 1.f;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.mipLodBias = 0.f;
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+	samplerCreateInfo.minLod = 0.f;
+	samplerCreateInfo.maxLod = 0.f;
+	samplerCreateInfo.maxAnisotropy = 1.0;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_imageInfo.sampler));
+
+	VkImageViewCreateInfo viewCreateInfo{};
+	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	viewCreateInfo.subresourceRange = m_subResourceRange;
+	viewCreateInfo.image = m_image;
+	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
+}
+VKBufferImage::~VKBufferImage()
+{}
+void VKBufferImage::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+{
+	if (_queue == VK_NULL_HANDLE)
+	{
+		std::cout << "need queue!" << std::endl;
+		return;
+	}
+	if (_data == nullptr)
+	{
+		std::cout << "need data!" << std::endl;
+		return;
+	}
+	if (m_bufferCopy == nullptr)
+		m_bufferCopy.reset(new VKBufferTrans());
+	m_bufferCopy->upload(_size, _data);
+
+	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
+		{ m_image },
+		{ m_subResourceRange },
+		0, VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
+		{ m_image },
+		{ m_subResourceRange },
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_image,
+		{ m_width, m_height, 0 }, m_subResourceRange);
+	LYJ_VK::VKImp vkImp(0);
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2 });
+	vkImp.run(_queue, _fence);
+}
+void VKBufferImage::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
+{
+}
+void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+{
+	return nullptr;
+}
+void VKBufferImage::releaseBufferCopy()
+{
+	m_bufferCopy.reset();
+}
+void VKBufferImage::destroy(bool _bf, bool _mem)
+{
+	if (m_image && _bf) {
+		vkDestroyImage(m_device, m_image, nullptr);
+		m_size = 0;
+	}
+	if (m_memory && _mem) {
+		vkFreeMemory(m_device, m_memory, nullptr);
+		m_capacity = 0;
+	}
+}
+
+NSP_VULKAN_LYJ_END
 

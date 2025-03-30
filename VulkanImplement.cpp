@@ -17,7 +17,7 @@ VKImp::VKImp(VkCommandBufferUsageFlags _cmdUsageFlag)
 }
 VKImp::~VKImp()
 {
-	vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
+	//destroy();
 }
 inline void VKImp::setCmds(std::vector<VKCommandAbr*> _cmds) { m_cmds = _cmds; }
 void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSemaphores, std::vector<VkSemaphore> _signalSemaphores,
@@ -35,10 +35,16 @@ void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSe
 	submitInfo.pSignalSemaphores = _signalSemaphores.data();
 	VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, _fence));
 }
+void VKImp::destroy()
+{
+	if (m_commandBuffer)
+		vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
+}
 bool VKImp::build()
 {
 	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
 	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufferBeginInfo.flags = m_usageFlag;
 	VK_CHECK_RESULT(vkBeginCommandBuffer(m_commandBuffer, &cmdBufferBeginInfo));
 	for (auto& cmd : m_cmds)
 	{
@@ -56,6 +62,20 @@ VKImpPresent::VKImpPresent()
 }
 VKImpPresent::~VKImpPresent()
 {
+}
+
+VkResult VKImpPresent::present(VkQueue _queue,
+	std::vector<VkSwapchainKHR>& _swapChains, std::vector<uint32_t>& _imageIndexs,
+	std::vector<VkSemaphore>& _waitSemaphores)
+{
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = _waitSemaphores.data();
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = _swapChains.data();
+	presentInfo.pImageIndices = _imageIndexs.data();
+	return vkQueuePresentKHR(_queue, &presentInfo);
 }
 
 

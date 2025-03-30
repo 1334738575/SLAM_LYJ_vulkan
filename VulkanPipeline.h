@@ -12,16 +12,17 @@ NSP_VULKAN_LYJ_BEGIN
 class VULKAN_LYJ_API VKPipelineAbr : public VKCommandAbr
 {
 public:
-	VKPipelineAbr()=delete;
-	VKPipelineAbr(const std::string& _path);
+	VKPipelineAbr() = delete;
+	VKPipelineAbr(int _cnt);
 	~VKPipelineAbr();
 
-	bool setBufferBinding(const int _binding, VKBufferAbr* _buffer);
+	bool setBufferBinding(const int _binding, VKBufferAbr* _buffer, int _cnti=0);
 	VkResult build();
+	virtual void destroy();
 
 	//tmp
 	inline VkPipeline getPipeline() { return m_pipeline; }
-	inline VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; }
+	inline VkDescriptorSet& getDescriptorSet(int _i = 0) { return m_descriptorSets[_i]; }
 	inline VkPipelineLayout& getPipelineLayout() { return m_pipelineLayout; }
 
 	static VkShaderModule createShaderModule(VkDevice& _device, const std::vector<char>& _code)
@@ -47,7 +48,7 @@ public:
 	}
 
 protected:
-	virtual VkResult createPipeline(const std::string& _path) = 0;
+	virtual VkResult createPipeline() = 0;
 	VkResult createVKDescriptorPool();
 	VkResult createVKDescriptorSetLayout();
 	VkResult createVKPipelineLayout();
@@ -56,17 +57,17 @@ protected:
 
 protected:
 	VkDevice m_device = VK_NULL_HANDLE;
-	std::string m_path = "";
 	VkPipeline m_pipeline = VK_NULL_HANDLE;
 	VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
 	VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 	VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
 	VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
-	VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
 
-	std::vector<int> m_locations;
-	std::vector<VKBufferAbr*> m_buffers;
-	std::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+	int m_cnt = 0;
+	std::vector<VkDescriptorSet> m_descriptorSets;
+	std::vector<std::vector<int>> m_locations; //every std::vector<int> is same
+	std::vector<std::vector<VKBufferAbr*>> m_buffers;
+	std::vector<std::vector<VkDescriptorSetLayoutBinding>> m_layoutBindings; //size == 1
 };
 
 
@@ -88,9 +89,10 @@ public:
 	void record(VkCommandBuffer _cmdBuffer) override;
 private:
 	// 通过 VKPipelineAbr 继承
-	VkResult createPipeline(const std::string& _path) override;
+	VkResult createPipeline() override;
 
 private:
+	std::string m_path = "";
 	uint32_t m_blockx = 1;
 	uint32_t m_blocky = 1;
 	uint32_t m_blockz = 1;
@@ -99,24 +101,86 @@ private:
 
 
 
+class VULKAN_LYJ_API ClassResolver
+{
+public:
+	ClassResolver();
+	~ClassResolver();
+	void addBindingDescriptor(uint32_t _binding, uint32_t _stride, VkVertexInputRate _inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
+	void addAttributeDescriptor(uint32_t _binding, uint32_t _location, VkFormat _format, uint32_t _offset);
+	std::vector<VkVertexInputBindingDescription> vertexInputBindings;
+	std::vector<VkVertexInputAttributeDescription> vertexInputAttributes;
+};
+
+class VULKAN_LYJ_API VKFrameBuffer
+{
+public:
+	VKFrameBuffer(uint32_t _width, uint32_t _height);
+	~VKFrameBuffer();
+	inline VkFramebuffer getFrameBuffer() { return m_frameBuffer; };
+
+	VkResult create(VkRenderPass _renderPass, std::vector<VkImageView>& _imageViews);
+	void destroy();
+private:
+	VkFramebuffer m_frameBuffer = VK_NULL_HANDLE;
+	uint32_t m_width;
+	uint32_t m_height;
+	VkDevice m_device = VK_NULL_HANDLE;
+};
 
 class VULKAN_LYJ_API VKPipelineGraphics : public VKPipelineAbr
 {
 public:
-	VKPipelineGraphics(const std::string& _path);
+	VKPipelineGraphics() = delete;
+	VKPipelineGraphics(const std::string& _vertShaderPath, const std::string& _fragShaderPath, uint32_t _imageCnt);
 	~VKPipelineGraphics();
 
+	void setVertexBuffer(VKBufferVertex* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
+	void setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt);
+	void setExtent2D(VkExtent2D _extent);
+	void addVkFormat(VkFormat _format);
+	void setRenderPass(VkRenderPass _renderPass);
+	void setFrameBuffers(std::vector<std::shared_ptr<VKFrameBuffer>>& _frameBuffers);
+	inline std::shared_ptr<VKFrameBuffer> getFrameBuffer(int _i) { return m_framebuffers[_i]; };
+	inline VkRenderPass getRenderPass() { return m_renderPass; };
+	inline void setCurId(int _curId) { m_curId = _curId; }
+
+	// 通过 VKPipelineAbr 继承
+	void destroy() override;
 
 	// 通过 VKCommandAbr 继承
 	void record(VkCommandBuffer _cmdBuffer) override;
 private:
 	// 通过 VKPipelineAbr 继承
-	VkResult createPipeline(const std::string& _path) override;
+	VkResult createPipeline() override;
 
+	VkResult createRenderPass();
 private:
+	std::string m_vertShaderPath = "";
+	std::string m_fragShaderPath = "";
 	VKBufferAbr* m_vertexBuffer = nullptr;
 	VKBufferAbr* m_indexBuffer = nullptr;
 	uint32_t m_indexCount = 0;
+	uint32_t m_vertexCount = 0;
+	ClassResolver m_classResolver;
+	VkExtent2D m_extent{};
+	VkClearValue m_clearColor{ 1.f, 0.f, 0.f, 1.f };
+
+	//renderpass
+	std::vector<VkFormat> m_formats;
+	VkRenderPass m_renderPass = VK_NULL_HANDLE;
+
+	//pipeline other
+	std::vector<VkDynamicState> m_dynamicStates;
+	std::vector<VkPipelineColorBlendAttachmentState> m_colorBlendAttachmentStates;
+	std::vector<VkViewport> m_viewports;
+	std::vector<VkRect2D> m_scissors;
+
+	//run
+	int m_curId = 0;
+
+	//target
+	std::vector<std::shared_ptr<LYJ_VK::VKFrameBuffer>> m_framebuffers;
 };
 
 
