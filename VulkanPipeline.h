@@ -137,10 +137,7 @@ public:
 
 	void setVertexBuffer(VKBufferVertex* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
 	void setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt);
-	void setExtent2D(VkExtent2D _extent);
-	void addVkFormat(VkFormat _format);
-	void setRenderPass(VkRenderPass _renderPass);
-	void setFrameBuffers(std::vector<std::shared_ptr<VKFrameBuffer>>& _frameBuffers);
+	void setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image);
 	inline std::shared_ptr<VKFrameBuffer> getFrameBuffer(int _i) { return m_framebuffers[_i]; };
 	inline VkRenderPass getRenderPass() { return m_renderPass; };
 	inline void setCurId(int _curId) { m_curId = _curId; }
@@ -155,6 +152,7 @@ private:
 	VkResult createPipeline() override;
 
 	VkResult createRenderPass();
+	VkResult createFrameBuffers();
 private:
 	std::string m_vertShaderPath = "";
 	std::string m_fragShaderPath = "";
@@ -167,7 +165,6 @@ private:
 	VkClearValue m_clearColor{ 1.f, 0.f, 0.f, 1.f };
 
 	//renderpass
-	std::vector<VkFormat> m_formats;
 	VkRenderPass m_renderPass = VK_NULL_HANDLE;
 
 	//pipeline other
@@ -180,7 +177,9 @@ private:
 	int m_curId = 0;
 
 	//target
-	std::vector<std::shared_ptr<LYJ_VK::VKFrameBuffer>> m_framebuffers;
+	std::vector<std::vector<std::shared_ptr<VKBufferImage>>> m_images;//every std::vector<VkFormat> is same
+	std::vector<int> m_attachLocations;//every std::vector<VkFormat> is same
+	std::vector<std::shared_ptr<VKFrameBuffer>> m_framebuffers;
 };
 
 

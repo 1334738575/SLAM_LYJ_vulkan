@@ -155,13 +155,16 @@ class VULKAN_LYJ_API VKBufferImage : public VKBufferAbr
 {
 public:
 	VKBufferImage() = delete;
-	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format);
-	VKBufferImage(VkImage _image, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format); //for tmp
+	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type=BUFFERTYPE::TEXTURE);
+	VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type = BUFFERTYPE::TEXTURE); //for tmp
 	~VKBufferImage();
 
 	inline const uint32_t getWidth() const { return m_width; };
 	inline const uint32_t getHeight() const { return m_height; };
 	inline const uint32_t getChannels() const { return m_channels; };
+	inline const uint32_t getStep() const { return m_step; };
+	inline const VkFormat getFormat() const { return m_format; };
+	inline const VkImageSubresourceRange& getSubresource() const { return m_subResourceRange; };
 
 	// Í¨¹ý VKBufferAbr ¼Ì³Ð
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;

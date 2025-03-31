@@ -260,12 +260,12 @@ VKBufferIndex::~VKBufferIndex()
 
 
 
-VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format)
+VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type)
 	: m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
 {
 	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	m_type = BUFFERTYPE::TEXTURE;
+	m_type = _type;
 
 	m_size = m_width * m_height * m_channels;
 	VkImageCreateInfo imageInfo{};
@@ -326,13 +326,13 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _st
 	viewCreateInfo.image = m_image;
 	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
 }
-VKBufferImage::VKBufferImage(VkImage _image, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format)
+VKBufferImage::VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type)
 	:m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
 {
 	m_image = _image;
 	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	m_type = BUFFERTYPE::TEXTURE;
+	m_type = _type;
 
 	m_size = m_width * m_height * m_channels;
 
@@ -343,6 +343,7 @@ VKBufferImage::VKBufferImage(VkImage _image, uint32_t _w, uint32_t _h, uint32_t 
 	m_subResourceRange.layerCount = 1;
 
 	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imageInfo.imageView = _imageView;
 }
 VKBufferImage::~VKBufferImage()
 {}

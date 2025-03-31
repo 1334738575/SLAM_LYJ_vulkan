@@ -1,7 +1,7 @@
 #ifndef VULKAN_SWAPCHAIN_H
 
 #include "VulkanCommon.h"
-
+#include "VulkanBuffer.h"
 
 NSP_VULKAN_LYJ_BEGIN
 
@@ -12,11 +12,13 @@ public:
 	VKSwapChain(uint32_t _imageCnt);
 	~VKSwapChain();
 	inline VkSwapchainKHR getSwapChain() { return m_swapChain; };
-	inline std::vector<VkImage>& getImages() { return m_images; };
+	inline std::vector<VkImage>& getVkImages() { return m_images; };
+	inline std::vector<std::shared_ptr<VKBufferImage>>& getImages() { return m_imagePtrs; };
 	inline std::vector<VkImageView>& getImageViews() { return m_imageViews; };
-	inline const uint32_t getImageCnt() const { return m_imgageCnt; };
+	inline const uint32_t getImageCnt() const { return m_imageCnt; };
 	inline const VkFormat getFormat() const { return m_format; };
 	inline const VkExtent2D& getExtent2D() const { return m_extent; };
+	inline const uint32_t& getImageDeviceSize() const { return m_imageDeviceSize; };
 	void destory();
 
 	static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
@@ -57,10 +59,12 @@ private:
 	VkDevice m_device = VK_NULL_HANDLE;
 	VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
 	std::vector<VkImage> m_images;
+	std::vector<std::shared_ptr<VKBufferImage>> m_imagePtrs;
 	std::vector<VkImageView> m_imageViews;
-	uint32_t m_imgageCnt = 0;
+	uint32_t m_imageCnt = 0;
 	VkFormat m_format;
 	VkExtent2D m_extent;
+	uint32_t m_imageDeviceSize = 0;
 };
 
 

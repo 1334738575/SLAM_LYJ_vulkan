@@ -245,6 +245,8 @@ VKPipelineGraphics::VKPipelineGraphics(const std::string& _vertShaderPath, const
 	: VKPipelineAbr(_imageCnt), m_vertShaderPath(_vertShaderPath), m_fragShaderPath(_fragShaderPath)
 {
 	m_type = CMDTYPE::GRAPHICS;
+	m_images.resize(_imageCnt);
+	m_framebuffers.resize(_imageCnt);
 }
 inline VKPipelineGraphics::~VKPipelineGraphics()
 {}
@@ -259,25 +261,15 @@ void VKPipelineGraphics::setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _i
 	m_indexBuffer = _indexBuffer;
 	m_indexCount = _indexCnt;
 }
-void VKPipelineGraphics::setExtent2D(VkExtent2D _extent)
+void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image)
 {
-	m_extent = _extent;
-}
-void VKPipelineGraphics::addVkFormat(VkFormat _format)
-{
-	m_formats.push_back(_format);
-}
-void VKPipelineGraphics::setRenderPass(VkRenderPass _renderPass)
-{
-	m_renderPass = _renderPass;
-}
-void VKPipelineGraphics::setFrameBuffers(std::vector<std::shared_ptr<VKFrameBuffer>>& _frameBuffers)
-{
-	m_framebuffers = _frameBuffers;
+	m_images[_cnti].push_back(_image);
+	m_attachLocations.push_back(_atti);
 }
 VkResult VKPipelineGraphics::createPipeline()
 {
 	createRenderPass();
+	createFrameBuffers();
 	auto vertShaderCode = LYJ_VK::VKPipelineAbr::readFile(m_vertShaderPath);
 	auto fragShaderCode = LYJ_VK::VKPipelineAbr::readFile(m_fragShaderPath);
 	VkShaderModule vertShaderModule = LYJ_VK::VKPipelineAbr::createShaderModule(m_device, vertShaderCode);
@@ -369,32 +361,46 @@ VkResult VKPipelineGraphics::createPipeline()
 }
 VkResult VKPipelineGraphics::createRenderPass()
 {
-	uint32_t formatSize = m_formats.size();
-	if (formatSize == 0)
+	if (m_images.empty())
 		return VK_SUCCESS;
-	std::vector<VkAttachmentDescription> colorAttachments(formatSize);
-	for (int i = 0; i < formatSize; ++i) {
+	uint32_t attachSize = m_images[0].size();
+	if (attachSize == 0)
+		return VK_SUCCESS;
+
+	//附件所有子通道共享
+	std::vector<VkAttachmentDescription> colorAttachments(attachSize);
+	for (int i = 0; i < attachSize; ++i) {
 		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = m_formats[i];
+		colorAttachment.format = m_images[0][i]->getFormat();
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		if(m_images[0][i]->getType() == VKBufferAbr::BUFFERTYPE::TEXTURE)
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		if (m_images[0][i]->getType() == VKBufferAbr::BUFFERTYPE::DEPTH)
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 		colorAttachments[i] = colorAttachment;
 	}
 
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	//附件引用
+	std::vector<VkAttachmentReference> attachmentRefs(attachSize);
+	for (int i = 0; i < attachSize; ++i) {
+		VkAttachmentReference attachmentRef{};
+		attachmentRef.attachment = i;
+		attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachmentRefs[i] = attachmentRef;
+	}
 
+	//子通道
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
+	subpass.colorAttachmentCount = attachmentRefs.size();
+	subpass.pColorAttachments = &attachmentRefs.front();
 
+	//子通道之间的依赖
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependency.dstSubpass = 0;
@@ -405,7 +411,7 @@ VkResult VKPipelineGraphics::createRenderPass()
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = formatSize;
+	renderPassInfo.attachmentCount = attachSize;
 	renderPassInfo.pAttachments = &colorAttachments.front();
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
@@ -413,6 +419,21 @@ VkResult VKPipelineGraphics::createRenderPass()
 	renderPassInfo.pDependencies = &dependency;
 
 	return vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass);
+}
+VkResult VKPipelineGraphics::createFrameBuffers()
+{
+	m_extent.width = m_images[0][0]->getWidth();
+	m_extent.height = m_images[0][0]->getHeight();
+	for (size_t i = 0; i < m_cnt; ++i) {
+		int imgSize = m_images[i].size();
+		m_framebuffers[i].reset(new LYJ_VK::VKFrameBuffer(m_images[i][0]->getWidth(), m_images[i][0]->getHeight()));
+		std::vector<VkImageView> attachments(imgSize);
+		for (size_t j = 0; j < imgSize; ++j)
+			attachments[j] = m_images[i][j]->getImageInfo()->imageView;
+		if (m_framebuffers[i]->create(m_renderPass, attachments) != VK_SUCCESS)
+			throw std::runtime_error("failed to create framebuffer");
+	}
+	return VK_SUCCESS;
 }
 void VKPipelineGraphics::destroy()
 {

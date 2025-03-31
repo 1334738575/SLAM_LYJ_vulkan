@@ -175,10 +175,6 @@ void VKGraphicTest::init() {
 	m_pipelineGraphics.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "texture/texture.vert.spv", shaderPath + "texture/texture.frag.spv", 2));
 	m_swapChain.reset(new LYJ_VK::VKSwapChain(2));
 
-	//render pass
-	m_pipelineGraphics->addVkFormat(m_swapChain->getFormat());
-	m_pipelineGraphics->setExtent2D(m_swapChain->getExtent2D());
-
 	//texture2d
 	auto funcCreateTextureImage = [&]() {
 		VkDevice device = m_lyjVK->m_device;
@@ -254,23 +250,13 @@ void VKGraphicTest::init() {
 	funcCreateUniformBuffers();
 
 	//pipeline
-	m_pipelineGraphics->build();
-
-	//frame buffer
-	auto funcCreateFramebuffers = [&]() {
-		std::vector<VkImageView>& imageViews = m_swapChain->getImageViews();
-		const VkExtent2D& extent = m_swapChain->getExtent2D();
-		std::vector<std::shared_ptr<LYJ_VK::VKFrameBuffer>> framebuffers;
-		framebuffers.resize(imageViews.size());
-		for (size_t i = 0; i < imageViews.size(); ++i) {
-			framebuffers[i].reset(new LYJ_VK::VKFrameBuffer(extent.width, extent.height));
-			std::vector<VkImageView> attachments{ imageViews[i] };
-			if (framebuffers[i]->create(m_pipelineGraphics->getRenderPass(), attachments) != VK_SUCCESS)
-				throw std::runtime_error("failed to create framebuffer");
+	{
+		std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>>& images = m_swapChain->getImages();
+		for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i) {
+			m_pipelineGraphics->setImage(i, 0, images[i]);
 		}
-		m_pipelineGraphics->setFrameBuffers(framebuffers);
-		};
-	funcCreateFramebuffers();
+	}
+	m_pipelineGraphics->build();
 
 	//imp
 	m_imp.reset(new LYJ_VK::VKImp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
@@ -308,21 +294,21 @@ void VKGraphicTest::drawFrame() {
 	//get image in swapchain
 	if(false){
 		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
-		std::vector<VkImage>& vkImgs = m_swapChain->getImages();
-
-		VkImage vkImg = vkImgs[0];
+		//std::vector<VkImage>& vkImgs = m_swapChain->getVkImages();
+		//VkImage vkImg = vkImgs[0];
 		int w = extent2D.width;
 		int h = extent2D.height;
 		int c = 4;
 		int step = 1;
 		int s = w * h * c * step;
-		LYJ_VK::VKBufferImage lyjImg(vkImg, w, h, c, step, VK_FORMAT_R8G8B8A8_UNORM);
+		//LYJ_VK::VKBufferImage lyjImg(vkImg, w, h, c, step, VK_FORMAT_R8G8B8A8_UNORM);
+		auto lyjImg = m_swapChain->getImages()[0];
 		LYJ_VK::VKFence fenceTmp;
-		void* data = lyjImg.download(s, graphicQueue, fenceTmp.ptr());
+		void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
 		fenceTmp.wait();
 		cv::Mat mmm(h, w, CV_8UC4);
 		memcpy(mmm.data, data, s);
-		lyjImg.releaseBufferCopy();
+		lyjImg->releaseBufferCopy();
 		cv::imshow("111", mmm);
 		cv::waitKey();
 	}

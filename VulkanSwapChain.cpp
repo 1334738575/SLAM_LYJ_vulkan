@@ -5,7 +5,7 @@ NSP_VULKAN_LYJ_BEGIN
 
 
 VKSwapChain::VKSwapChain(uint32_t _imageCnt)
-	:m_imgageCnt(_imageCnt)
+	:m_imageCnt(_imageCnt)
 {
 	m_device = GetLYJVKInstance()->m_device;
 	LYJ_VK::SwapChainSupportDetails& details = GetLYJVKInstance()->m_details;
@@ -17,15 +17,15 @@ VKSwapChain::VKSwapChain(uint32_t _imageCnt)
 	m_format = surfaceFormat.format;
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(details.presentModes);
 	m_extent = chooseSwapExtent(details.capabilities, windows);
-	m_imgageCnt = details.capabilities.minImageCount + 1;
-	if (details.capabilities.maxImageCount > 0 && m_imgageCnt > details.capabilities.maxImageCount) {
-		m_imgageCnt = details.capabilities.maxImageCount;
+	m_imageCnt = details.capabilities.minImageCount + 1;
+	if (details.capabilities.maxImageCount > 0 && m_imageCnt > details.capabilities.maxImageCount) {
+		m_imageCnt = details.capabilities.maxImageCount;
 	}
-	m_imgageCnt = 2;
+	m_imageCnt = 2;
 	VkSwapchainCreateInfoKHR createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = surface;
-	createInfo.minImageCount = m_imgageCnt;
+	createInfo.minImageCount = m_imageCnt;
 	createInfo.imageFormat = m_format;
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = m_extent;
@@ -49,12 +49,12 @@ VKSwapChain::VKSwapChain(uint32_t _imageCnt)
 	createInfo.oldSwapchain = VK_NULL_HANDLE; //不为空时，将在旧交换链基础上创建新的
 	if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
 		throw std::runtime_error("failed to create swap chain");
-	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imgageCnt, nullptr);
-	m_images.resize(m_imgageCnt);
-	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imgageCnt, m_images.data());
+	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imageCnt, nullptr);
+	m_images.resize(m_imageCnt);
+	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imageCnt, m_images.data());
 
-	m_imageViews.resize(m_imgageCnt);
-	for (size_t i = 0; i < m_imgageCnt; ++i) {
+	m_imageViews.resize(m_imageCnt);
+	for (size_t i = 0; i < m_imageCnt; ++i) {
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		createInfo.image = m_images[i];
@@ -72,6 +72,15 @@ VKSwapChain::VKSwapChain(uint32_t _imageCnt)
 		if (vkCreateImageView(m_device, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
 			throw std::runtime_error("failed to create image views");
 	}
+
+	int w = m_extent.width;
+	int h = m_extent.height;
+	int c = 4;
+	int step = 1;
+	m_imageDeviceSize = w * h * c * step;
+	m_imagePtrs.resize(m_imageCnt, nullptr);
+	for (int i = 0; i < m_imageCnt; ++i)
+		m_imagePtrs[i].reset(new LYJ_VK::VKBufferImage(m_images[i], m_imageViews[i], w, h, c, step, VK_FORMAT_R8G8B8A8_UNORM));
 }
 VKSwapChain::~VKSwapChain()
 {
