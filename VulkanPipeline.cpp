@@ -58,8 +58,12 @@ VkResult VKPipelineAbr::createVKDescriptorPool()
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE && cnt == 0) {
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
+		}
+		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
 		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE) {
@@ -88,8 +92,12 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE && cnt == 0 ) {
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE) {
@@ -134,7 +142,8 @@ void VKPipelineAbr::createVKDescriptorSets()
 			writeDescriptorSets[i].dstSet = m_descriptorSets[di];
 			writeDescriptorSets[i].descriptorType = m_layoutBindings[0][i].descriptorType;
 			writeDescriptorSets[i].dstBinding = m_layoutBindings[0][i].binding;
-			if (m_layoutBindings[0][i].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+			if (m_layoutBindings[0][i].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+				m_layoutBindings[0][i].descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
 				writeDescriptorSets[i].pImageInfo = m_buffers[di][i]->getImageInfo();
 			else
 				writeDescriptorSets[i].pBufferInfo = m_buffers[di][i]->getBufferInfo();
@@ -265,6 +274,12 @@ void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBuffer
 {
 	m_images[_cnti].push_back(_image);
 	m_attachLocations.push_back(_atti);
+	//if (_atti > 0)
+	//	setBufferBinding(_atti, _image.get(), _cnti);
+}
+std::shared_ptr<VKBufferImage> VKPipelineGraphics::getImage(int _cnti, int _atti)
+{
+	return m_images[_cnti][_atti];
 }
 VkResult VKPipelineGraphics::createPipeline()
 {
@@ -338,7 +353,9 @@ VkResult VKPipelineGraphics::createPipeline()
 	pipelineCreateInfo.pDepthStencilState = &depthStencilStateCreateInfo;
 
 	VkPipelineColorBlendAttachmentState tmp{};
-	tmp.colorWriteMask = 0b111;
+	tmp.colorWriteMask = 0b1111;
+	m_colorBlendAttachmentStates.push_back(tmp);
+	m_colorBlendAttachmentStates.push_back(tmp);
 	m_colorBlendAttachmentStates.push_back(tmp);
 	VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
 	colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -399,15 +416,32 @@ VkResult VKPipelineGraphics::createRenderPass()
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = attachmentRefs.size();
 	subpass.pColorAttachments = &attachmentRefs.front();
+	//subpass.pDepthStencilAttachment;
 
 	//子通道之间的依赖
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//VkSubpassDependency dependency{};
+	//dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependency.dstSubpass = 0;
+	//dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependency.srcAccessMask = 0;
+	//dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	std::array<VkSubpassDependency, 2> dependencies;
+	// This makes sure that writes to the depth image are done before we try to write to it again
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
+	dependencies[0].srcAccessMask = 0;
+	dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = 0;
+	dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].dstSubpass = 0;
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].srcAccessMask = 0;
+	dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dependencyFlags = 0;
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -415,8 +449,8 @@ VkResult VKPipelineGraphics::createRenderPass()
 	renderPassInfo.pAttachments = &colorAttachments.front();
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+	renderPassInfo.pDependencies = dependencies.data();
 
 	return vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass);
 }

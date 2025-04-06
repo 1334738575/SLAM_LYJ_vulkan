@@ -36,7 +36,7 @@ VkResult VKBufferAbr::createVkBuffer()
 	destroy(true, false);
 	VkBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.usage = m_usageFlags;
+	bufferCreateInfo.usage = m_bufferUsageFlags;
 	bufferCreateInfo.size = m_size;
 	//VK_SHARING_MODE_EXCLUSIVE = 0, 资源被队列访问时独占
 	//VK_SHARING_MODE_CONCURRENT = 1, 允许多个队列访问
@@ -81,7 +81,7 @@ void VKBufferAbr::setupDescriptor(VkDeviceSize size, VkDeviceSize offset) {
 
 VKBufferTrans::VKBufferTrans()
 {
-	m_usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	m_type = BUFFERTYPE::TRANSFER;
 }
@@ -226,7 +226,7 @@ void VKBufferDevice::destroy(bool _bf, bool _mem)
 
 VKBufferCompute::VKBufferCompute()
 {
-	m_usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	m_type = BUFFERTYPE::COMPUTE;
 }
 VKBufferCompute::~VKBufferCompute()
@@ -234,7 +234,7 @@ VKBufferCompute::~VKBufferCompute()
 
 VKBufferUniform::VKBufferUniform()
 {
-	m_usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	m_type = BUFFERTYPE::UNIFORM;
 }
@@ -243,7 +243,7 @@ VKBufferUniform::~VKBufferUniform()
 
 VKBufferVertex::VKBufferVertex()
 {
-	m_usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	m_type = BUFFERTYPE::VERTEX;
 }
 VKBufferVertex::~VKBufferVertex()
@@ -251,7 +251,7 @@ VKBufferVertex::~VKBufferVertex()
 
 VKBufferIndex::VKBufferIndex()
 {
-	m_usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	m_type = BUFFERTYPE::INDEX;
 }
 VKBufferIndex::~VKBufferIndex()
@@ -260,14 +260,17 @@ VKBufferIndex::~VKBufferIndex()
 
 
 
-VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type)
+VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type, bool _bb)
 	: m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
 {
-	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if(_bb)
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	else
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	m_type = _type;
 
-	m_size = m_width * m_height * m_channels;
+	m_size = m_width * m_height * m_channels * m_step;
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -275,10 +278,11 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _st
 	imageInfo.mipLevels = 1; //纹理分辨率层级，一次减半
 	imageInfo.arrayLayers = 1;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
-	imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+	//imageInfo.tiling = VK_IMAGE_TILING_LINEAR; //cpu传输, no use, use buffer to trans
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; //渲染，深度，颜色附件
+	imageInfo.usage = m_imageUsageFlags;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 	imageInfo.extent.width = m_width;
 	imageInfo.extent.height = m_height;
 	imageInfo.extent.depth = 1;
@@ -298,30 +302,32 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _st
 	m_subResourceRange.levelCount = 1;
 	m_subResourceRange.layerCount = 1;
 
-	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.maxAnisotropy = 1.f;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.mipLodBias = 0.f;
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-	samplerCreateInfo.minLod = 0.f;
-	samplerCreateInfo.maxLod = 0.f;
-	samplerCreateInfo.maxAnisotropy = 1.0;
-	samplerCreateInfo.anisotropyEnable = VK_FALSE;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_imageInfo.sampler));
+	if (!_bb) {
+		VkSamplerCreateInfo samplerCreateInfo{};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.maxAnisotropy = 1.f;
+		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.mipLodBias = 0.f;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+		samplerCreateInfo.minLod = 0.f;
+		samplerCreateInfo.maxLod = 0.f;
+		samplerCreateInfo.maxAnisotropy = 1.0;
+		samplerCreateInfo.anisotropyEnable = VK_FALSE;
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_imageInfo.sampler));
+	}
 
 	VkImageViewCreateInfo viewCreateInfo{};
 	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	viewCreateInfo.format = m_format;
 	viewCreateInfo.subresourceRange = m_subResourceRange;
 	viewCreateInfo.image = m_image;
 	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
@@ -330,7 +336,7 @@ VKBufferImage::VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w
 	:m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
 {
 	m_image = _image;
-	m_usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	m_type = _type;
 
@@ -394,18 +400,24 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
 		{ m_image },
 		{ m_subResourceRange },
-		VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-		VK_IMAGE_LAYOUT_MAX_ENUM, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
-		{ m_image },
-		{ m_subResourceRange },
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	//LYJ_VK::VKCommandImageBarrier cmdBarrier2(
+	//	{ m_image },
+	//	{ m_subResourceRange },
+	//	VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
+	//	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+	//	VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	LYJ_VK::VKCommandBufferBarrier cmdBarrier2(
+		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
 		{ m_width, m_height, 0 }, m_subResourceRange);
 
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2 });
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdBarrier2 });
 	vkImp.run(_queue, _fence);
 	return ret;
 }

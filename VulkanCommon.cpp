@@ -83,6 +83,8 @@ void VKInstance::clean()
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	}
 	vkDestroyInstance(m_instance, nullptr);
+	if (m_bValid)
+		DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
 	if (m_bGlfw) {
 		glfwDestroyWindow(m_windows);
 		glfwTerminate();
@@ -179,12 +181,25 @@ VkResult VKInstance::createInstance()
 		if (validationLayerPresent) {
 			createInfo.ppEnabledLayerNames = &enableLayers[0];
 			createInfo.enabledLayerCount = 1;
+			VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+			populateDebugMessengerCreateInfo(debugCreateInfo);
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 		}
 		else {
 			std::cerr << "Validation layer VK_LAYER_KHRONOS_validation not present, validation is disabled";
 		}
 	}
-	return(vkCreateInstance(&createInfo, nullptr, &m_instance));
+	else {
+		createInfo.enabledLayerCount = 0;
+		createInfo.pNext = nullptr;
+	}
+	VkResult ret = vkCreateInstance(&createInfo, nullptr, &m_instance);
+	if (m_bValid) {
+		VkDebugUtilsMessengerCreateInfoEXT createMessageInfo;
+		populateDebugMessengerCreateInfo(createMessageInfo);
+		ret = CreateDebugUtilsMessengerEXT(m_instance, &createMessageInfo, nullptr, &m_debugMessenger);
+	}
+	return ret;
 }
 VkResult VKInstance::createPhysicalDevice()
 {

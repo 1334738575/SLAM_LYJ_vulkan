@@ -138,6 +138,7 @@ public:
 	void setVertexBuffer(VKBufferVertex* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
 	void setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt);
 	void setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image);
+	std::shared_ptr<VKBufferImage> getImage(int _cnti, int _atti);
 	inline std::shared_ptr<VKFrameBuffer> getFrameBuffer(int _i) { return m_framebuffers[_i]; };
 	inline VkRenderPass getRenderPass() { return m_renderPass; };
 	inline void setCurId(int _curId) { m_curId = _curId; }

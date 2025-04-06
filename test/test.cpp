@@ -206,7 +206,7 @@ void VKGraphicTest::init() {
 		fence.wait();
 		m_image->releaseBufferCopy();
 		for (int i = 0; i < imgCnt; ++i)
-			m_pipelineGraphics->setBufferBinding(1, m_image.get(), i);
+			m_pipelineGraphics->setBufferBinding(3, m_image.get(), i);
 		};
 	funcCreateTextureImage();
 
@@ -252,8 +252,15 @@ void VKGraphicTest::init() {
 	//pipeline
 	{
 		std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>>& images = m_swapChain->getImages();
+		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
 		for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i) {
+			std::shared_ptr<LYJ_VK::VKBufferImage> img;
+			std::shared_ptr<LYJ_VK::VKBufferImage> img2;
+			img.reset(new LYJ_VK::VKBufferImage(extent2D.width, extent2D.height, 4, 1, VK_FORMAT_R8G8B8A8_UNORM, LYJ_VK::VKBufferAbr::BUFFERTYPE::TEXTURE, true));
+			img2.reset(new LYJ_VK::VKBufferImage(extent2D.width, extent2D.height, 4, 1, VK_FORMAT_R8G8B8A8_UNORM, LYJ_VK::VKBufferAbr::BUFFERTYPE::TEXTURE, true));
 			m_pipelineGraphics->setImage(i, 0, images[i]);
+			m_pipelineGraphics->setImage(i, 1, img);
+			m_pipelineGraphics->setImage(i, 2, img2);
 		}
 	}
 	m_pipelineGraphics->build();
@@ -292,17 +299,14 @@ void VKGraphicTest::drawFrame() {
 	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, m_availableSemaphore->ptr(), VK_NULL_HANDLE, &imageIndex);
 	m_pipelineGraphics->setCurId(imageIndex);
 	//get image in swapchain
-	if(false){
+	if(true){
 		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
-		//std::vector<VkImage>& vkImgs = m_swapChain->getVkImages();
-		//VkImage vkImg = vkImgs[0];
 		int w = extent2D.width;
 		int h = extent2D.height;
 		int c = 4;
 		int step = 1;
 		int s = w * h * c * step;
-		//LYJ_VK::VKBufferImage lyjImg(vkImg, w, h, c, step, VK_FORMAT_R8G8B8A8_UNORM);
-		auto lyjImg = m_swapChain->getImages()[0];
+		auto lyjImg = m_pipelineGraphics->getImage(0, 1);
 		LYJ_VK::VKFence fenceTmp;
 		void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
 		fenceTmp.wait();
@@ -310,7 +314,7 @@ void VKGraphicTest::drawFrame() {
 		memcpy(mmm.data, data, s);
 		lyjImg->releaseBufferCopy();
 		cv::imshow("111", mmm);
-		cv::waitKey();
+		//cv::waitKey();
 	}
 	ShaderData shaderData{};
 	float xof = (m_cnt++ / 100) * 0.1f;

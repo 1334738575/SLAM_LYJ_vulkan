@@ -34,6 +34,18 @@
 
 NSP_VULKAN_LYJ_BEGIN
 
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData)
+{
+	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	return VK_FALSE;
+}
+
+
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
 	bool isCompleteGraphic() {
@@ -86,6 +98,32 @@ private:
 	VkResult createPhysicalDevice();
 	VkResult createDeviceAndQueue();
 	VkResult createCommandPool();
+
+
+	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+	{
+		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func != nullptr)
+			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+		else
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+	}
+
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+	{
+		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr)
+			func(instance, debugMessenger, pAllocator);
+	}
+
+	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	{
+		createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		createInfo.pfnUserCallback = debugCallback;
+	}
 //
 public:
 	bool m_init = false;
@@ -97,6 +135,7 @@ public:
 	bool m_bValid = false;
 	std::vector<const char*> m_supportLayers;
 	std::vector<const char*> m_enableLayers;
+	VkDebugUtilsMessengerEXT m_debugMessenger;
 
 	GLFWwindow* m_windows = nullptr;
 	const uint32_t m_width = 1600;
@@ -132,6 +171,20 @@ public:
 	virtual void destroy() = 0;
 private:
 
+};
+
+enum class VULKAN_LYJ_API BASETYPE
+{
+	UINT8=0,
+	INT8,
+	UINT16,
+	INT16,
+	UINT32,
+	INT32,
+	FLOAT32,
+	UINT64, //no use
+	INT64,
+	FLOAT64
 };
 
 
