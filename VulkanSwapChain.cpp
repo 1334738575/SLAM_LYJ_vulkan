@@ -17,11 +17,10 @@ VKSwapChain::VKSwapChain(uint32_t _imageCnt)
 	m_format = surfaceFormat.format;
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(details.presentModes);
 	m_extent = chooseSwapExtent(details.capabilities, windows);
-	m_imageCnt = details.capabilities.minImageCount + 1;
-	if (details.capabilities.maxImageCount > 0 && m_imageCnt > details.capabilities.maxImageCount) {
-		m_imageCnt = details.capabilities.maxImageCount;
-	}
-	m_imageCnt = 2;
+	//m_imageCnt = details.capabilities.minImageCount + 1;
+	//if (details.capabilities.maxImageCount > 0 && m_imageCnt > details.capabilities.maxImageCount) {
+	//	m_imageCnt = details.capabilities.maxImageCount;
+	//}
 	VkSwapchainCreateInfoKHR createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = surface;

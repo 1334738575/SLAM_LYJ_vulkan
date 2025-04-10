@@ -27,7 +27,7 @@ bool VKComputeTest::init()
 {
 	LYJ_VK::VKInstance* lyjVK = LYJ_VK::GetLYJVKInstance();
 	if (!lyjVK->isInited()) {
-		if (lyjVK->init() != VK_SUCCESS) {
+		if (lyjVK->init(false, nullptr, true) != VK_SUCCESS) {
 			std::cout << "init vulkan fail!" << std::endl;
 			return false;
 		}
@@ -209,6 +209,7 @@ void VKGraphicTest::init() {
 			m_pipelineGraphics->setBufferBinding(3, m_image.get(), i);
 		};
 	funcCreateTextureImage();
+	//return;
 
 	//vertices and indices buffer
 	const float edgeRatio = 0.5;
@@ -234,8 +235,12 @@ void VKGraphicTest::init() {
 		classResolver.addAttributeDescriptor(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal));
 		m_pipelineGraphics->setVertexBuffer(m_verBuffer.get(), vertices.size(), classResolver);
 		m_pipelineGraphics->setIndexBuffer(m_indBuffer.get(), indices.size());
+		vkQueueWaitIdle(m_lyjVK->m_graphicQueues[0]);
+		m_verBuffer->releaseBufferCopy();
+		m_indBuffer->releaseBufferCopy();
 		};
 	funcGenerateQuad();
+	//return;
 
 	//uniform buffer
 	auto funcCreateUniformBuffers = [&]() {
@@ -248,6 +253,7 @@ void VKGraphicTest::init() {
 		}
 		};
 	funcCreateUniformBuffers();
+	//return;
 
 	//pipeline
 	{
@@ -261,19 +267,34 @@ void VKGraphicTest::init() {
 			m_pipelineGraphics->setImage(i, 0, images[i]);
 			m_pipelineGraphics->setImage(i, 1, img);
 			m_pipelineGraphics->setImage(i, 2, img2);
+			m_imgs.push_back(img);
+			m_imgs.push_back(img2);
 		}
 	}
 	m_pipelineGraphics->build();
+	//return;
 
 	//imp
-	m_imp.reset(new LYJ_VK::VKImp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
-	m_imp->setCmds({ m_pipelineGraphics.get() });
-
+	m_imps.resize(m_swapChain->getImageCnt(), nullptr);
+	for (int i = 0; i < m_swapChain->getImageCnt(); ++i) {
+		m_imps[i].reset(new LYJ_VK::VKImp(0));
+		m_imps[i]->setCmds({m_pipelineGraphics.get()});
+	}
+	//return;
 
 	//fence and semaphore
 	m_fence.reset(new LYJ_VK::VKFence());
 	m_availableSemaphore.reset(new LYJ_VK::VKSemaphore());
 	m_finishedSemaphore.reset(new LYJ_VK::VKSemaphore());
+	m_cmdImgBarriers.resize(m_swapChain->getImageCnt(), nullptr);
+	for (int i = 0; i < m_swapChain->getImageCnt(); ++i) {
+		m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
+			{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i,0)->getSubresource() },
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
+	}
 	return;
 }
 void VKGraphicTest::mainLoop() {
@@ -299,7 +320,7 @@ void VKGraphicTest::drawFrame() {
 	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, m_availableSemaphore->ptr(), VK_NULL_HANDLE, &imageIndex);
 	m_pipelineGraphics->setCurId(imageIndex);
 	//get image in swapchain
-	if(true){
+	if(m_cnt && false){
 		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
 		int w = extent2D.width;
 		int h = extent2D.height;
@@ -340,7 +361,14 @@ void VKGraphicTest::drawFrame() {
 	);
 	m_uniBuffers[imageIndex]->upload(sizeof(ShaderData), &shaderData, graphicQueue);
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	m_imp->run(graphicQueue, m_fence->ptr(), { m_availableSemaphore->ptr() }, { m_finishedSemaphore->ptr() }, waitStages);
+	m_imps[imageIndex]->run(graphicQueue, m_fence->ptr(), {m_availableSemaphore->ptr()}, {m_finishedSemaphore->ptr()}, waitStages);
+
+	LYJ_VK::VKImp impTmp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	impTmp.setCmds({ m_cmdImgBarriers[imageIndex].get()});
+	LYJ_VK::VKFence fenceTmp;
+	impTmp.run(graphicQueue, fenceTmp.ptr());
+	fenceTmp.wait();
+	impTmp.destroy();
 
 	std::vector<VkSwapchainKHR> swapChains = { swapChain };
 	std::vector<uint32_t> imageIndices = { imageIndex };
@@ -360,6 +388,9 @@ void VKGraphicTest::cleanup() {
 
 	if (m_image)
 		m_image->destroy();
+	for (auto img : m_imgs)
+		if (img)
+			img->destroy();
 	for (auto uniBuffer : m_uniBuffers)
 		if (uniBuffer)
 			uniBuffer->destroy();
@@ -368,8 +399,9 @@ void VKGraphicTest::cleanup() {
 	if (m_indBuffer)
 		m_indBuffer->destroy();
 
-	if (m_imp)
-		m_imp->destroy();
+	for(auto imp:m_imps)
+		if (imp)
+			imp->destroy();
 
 	if (m_swapChain)
 		m_swapChain->destory();

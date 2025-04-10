@@ -243,11 +243,13 @@ VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView
 	framebufferInfo.width = m_width;
 	framebufferInfo.height = m_height;
 	framebufferInfo.layers = 1;
+	m_clrAttCnt = _imageViews.size();
 	return vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_frameBuffer);
 }
 void VKFrameBuffer::destroy()
 {
-	vkDestroyFramebuffer(m_device, m_frameBuffer, nullptr);
+	if(m_frameBuffer)
+		vkDestroyFramebuffer(m_device, m_frameBuffer, nullptr);
 }
 
 VKPipelineGraphics::VKPipelineGraphics(const std::string& _vertShaderPath, const std::string& _fragShaderPath, uint32_t _imageCnt)
@@ -484,10 +486,17 @@ void VKPipelineGraphics::destroy()
 	if (m_renderPass)
 		vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 	for (auto framebuffer : m_framebuffers)
-		framebuffer->destroy();
+		if(framebuffer)
+			framebuffer->destroy();
 }
 void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 {
+	uint32_t clrAttCnt = m_framebuffers.at(m_curId)->getColorAttachmentCount();
+	m_clearColors.resize(clrAttCnt);
+	for (uint32_t i = 0; i < clrAttCnt; ++i) {
+		m_clearColors[i] = VkClearValue{};
+		m_clearColors[i].color = { 1.f, 0.f, 0.f, 1.f };
+	}
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.renderPass = m_renderPass;
@@ -496,8 +505,8 @@ void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 	renderPassBeginInfo.renderArea.offset.y = 0;
 	renderPassBeginInfo.renderArea.extent.width = m_extent.width;
 	renderPassBeginInfo.renderArea.extent.height = m_extent.height;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = &m_clearColor;
+	renderPassBeginInfo.clearValueCount = clrAttCnt;
+	renderPassBeginInfo.pClearValues = &m_clearColors.front();
 	vkCmdBeginRenderPass(_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindDescriptorSets(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[m_curId], 0, nullptr);

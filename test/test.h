@@ -73,13 +73,14 @@ private:
 	std::vector<std::shared_ptr<LYJ_VK::VKBufferUniform>> m_uniBuffers;
 	std::shared_ptr<LYJ_VK::VKBufferVertex> m_verBuffer = nullptr;
 	std::shared_ptr<LYJ_VK::VKBufferIndex> m_indBuffer = nullptr;
-	std::shared_ptr<LYJ_VK::VKImp> m_imp = nullptr;
+	std::vector< std::shared_ptr<LYJ_VK::VKBufferImage>> m_imgs;
+	std::vector < std::shared_ptr<LYJ_VK::VKImp>> m_imps;
 	int m_cnt = 0;
 
-	std::shared_ptr < LYJ_VK::VKFence> m_fence;
-	std::shared_ptr < LYJ_VK::VKSemaphore> m_availableSemaphore;
-	std::shared_ptr < LYJ_VK::VKSemaphore> m_finishedSemaphore;
-
+	std::shared_ptr < LYJ_VK::VKFence> m_fence = nullptr;
+	std::shared_ptr < LYJ_VK::VKSemaphore> m_availableSemaphore = nullptr;
+	std::shared_ptr < LYJ_VK::VKSemaphore> m_finishedSemaphore = nullptr;
+	std::vector < std::shared_ptr<LYJ_VK::VKCommandImageBarrier>> m_cmdImgBarriers;
 
 };
 

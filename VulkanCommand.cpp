@@ -13,8 +13,9 @@ VKCommandAbr::~VKCommandAbr()
 VKCommandBufferBarrier::VKCommandBufferBarrier(
     std::vector<VkBuffer> _bufferfs,
     VkAccessFlags _srcMask, VkAccessFlags _dstMask,
-    VkPipelineStageFlags _srcStage, VkPipelineStageFlags _dstStage
-    )
+    VkPipelineStageFlags _srcStage, VkPipelineStageFlags _dstStage,
+    uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex
+)
 	:m_buffers(_bufferfs), m_srcMask(_srcMask), m_dstMask(_dstMask), m_srcStage(_srcStage), m_dstStage(_dstStage)
 {
 	m_type = CMDTYPE::BUFFERBARRIER;
@@ -25,8 +26,8 @@ VKCommandBufferBarrier::VKCommandBufferBarrier(
         m_bufferMemoryBarriers[i].pNext = nullptr;
         m_bufferMemoryBarriers[i].srcAccessMask = m_srcMask; // 源访问掩码
         m_bufferMemoryBarriers[i].dstAccessMask = m_dstMask; // 目标访问掩码
-        m_bufferMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        m_bufferMemoryBarriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        m_bufferMemoryBarriers[i].srcQueueFamilyIndex = srcQueueFamilyIndex;
+        m_bufferMemoryBarriers[i].dstQueueFamilyIndex = dstQueueFamilyIndex;
         m_bufferMemoryBarriers[i].buffer = m_buffers[i]; // 目标缓冲区
         m_bufferMemoryBarriers[i].offset = 0; // 从缓冲区的开始处
         m_bufferMemoryBarriers[i].size = VK_WHOLE_SIZE; // 整个缓冲区
@@ -55,7 +56,9 @@ VKCommandImageBarrier::VKCommandImageBarrier(std::vector<VkImage> _images,
     std::vector<VkImageSubresourceRange> _subresourceRanges,
     VkAccessFlags _srcMask, VkAccessFlags _dstMask,
     VkImageLayout _srcLayout, VkImageLayout _dstLayout,
-    VkPipelineStageFlags _srcStage, VkPipelineStageFlags _dstStage)
+    VkPipelineStageFlags _srcStage, VkPipelineStageFlags _dstStage,
+    uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex
+)
 	:m_images(_images), m_subresourceRanges(_subresourceRanges),
     m_srcMask(_srcMask), m_dstMask(_dstMask),
     m_srcLayout(_srcLayout), m_dstLayout(_dstLayout),
@@ -71,15 +74,10 @@ VKCommandImageBarrier::VKCommandImageBarrier(std::vector<VkImage> _images,
 		m_imageMemoryBarriers[i].dstAccessMask = m_dstMask; // 目标访问掩码
 		m_imageMemoryBarriers[i].oldLayout = m_srcLayout; // 源图像布局
 		m_imageMemoryBarriers[i].newLayout = m_dstLayout; // 目标图像布局
-		m_imageMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		m_imageMemoryBarriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		m_imageMemoryBarriers[i].srcQueueFamilyIndex = srcQueueFamilyIndex;
+		m_imageMemoryBarriers[i].dstQueueFamilyIndex = dstQueueFamilyIndex;
 		m_imageMemoryBarriers[i].image = _images[i]; // 目标图像
         m_imageMemoryBarriers[i].subresourceRange = m_subresourceRanges[i]; // 图像方面
-  //      m_imageMemoryBarriers[i].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // 图像方面
-		//m_imageMemoryBarriers[i].subresourceRange.baseMipLevel = 0; // 第一个mipmap层级
-		//m_imageMemoryBarriers[i].subresourceRange.levelCount = 1; // mipmap层级数
-		//m_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = 0; // 第一个数组层级
-		//m_imageMemoryBarriers[i].subresourceRange.layerCount = 1; // 数组层级数
 	}
 }
 VKCommandImageBarrier::~VKCommandImageBarrier()
@@ -178,6 +176,29 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         break;
     }
     case TRANSTYPE::BUFFER2IMAGE: {
+        // 设置图像布局
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = m_dstImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        // 提交图像布局转换
+        vkCmdPipelineBarrier(
+            _cmdBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
         VkBufferImageCopy bufferImageCopy{};
         bufferImageCopy.bufferOffset = m_offsetSrc;
 		bufferImageCopy.bufferRowLength = 0;//meas row length in texels
@@ -192,6 +213,29 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         break;
     }
     case TRANSTYPE::IMAGE2BUFFER: {
+        // 设置图像布局
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = m_srcImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        // 提交图像布局转换
+        vkCmdPipelineBarrier(
+            _cmdBuffer,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
         VkBufferImageCopy imageBufferCopy{};
         imageBufferCopy.bufferOffset = m_offsetDst;
         imageBufferCopy.bufferRowLength = 0;//meas row length in texels
@@ -206,6 +250,52 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         break;
     }
     case TRANSTYPE::IMAGE2IMAGE: {
+        // 设置图像布局
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = m_srcImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        // 提交图像布局转换
+        vkCmdPipelineBarrier(
+            _cmdBuffer,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        // 设置图像布局
+        VkImageMemoryBarrier barrier2 = {};
+        barrier2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier2.srcAccessMask = 0;
+        barrier2.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier2.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier2.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier2.image = m_dstImage;
+        barrier2.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier2.subresourceRange.baseMipLevel = 0;
+        barrier2.subresourceRange.levelCount = 1;
+        barrier2.subresourceRange.baseArrayLayer = 0;
+        barrier2.subresourceRange.layerCount = 1;
+
+        // 提交图像布局转换
+        vkCmdPipelineBarrier(
+            _cmdBuffer,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier2);
+
         VkImageCopy imageCopy{};
         imageCopy.extent = m_imgSize;
         imageCopy.srcOffset = m_srcImgOffset;

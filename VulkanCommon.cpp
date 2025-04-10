@@ -82,9 +82,9 @@ void VKInstance::clean()
 	if (m_bGlfw) {
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	}
-	vkDestroyInstance(m_instance, nullptr);
 	if (m_bValid)
 		DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+	vkDestroyInstance(m_instance, nullptr);
 	if (m_bGlfw) {
 		glfwDestroyWindow(m_windows);
 		glfwTerminate();
@@ -331,13 +331,19 @@ VkResult VKInstance::createDeviceAndQueue()
 	if (m_queueIndices.computeFamily.has_value())
 		uniqueQueueFailies.insert(m_queueIndices.computeFamily.value());
 	float queuePriority = 1.0f;
+	std::vector<std::vector<float>> queuePros(3);
+	int cnt = 0;
+	//std::vector<float> queuePros2;
+	//std::vector<float> queuePros3;
 	for (uint32_t queueFamily : uniqueQueueFailies) {
 		VkDeviceQueueCreateInfo queueCreateInfo{};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = queueFamily;
 		queueCreateInfo.queueCount = m_queueFamilies[queueFamily].queueCount;
-		queueCreateInfo.pQueuePriorities = &queuePriority;
+		queuePros[cnt].assign(m_queueFamilies[queueFamily].queueCount, queuePriority);
+		queueCreateInfo.pQueuePriorities = &queuePros[cnt].front();
 		queueCreateInfos.push_back(queueCreateInfo);
+		++cnt;
 	}
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

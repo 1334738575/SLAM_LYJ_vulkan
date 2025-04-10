@@ -209,10 +209,14 @@ void* VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fenc
 }
 void VKBufferDevice::releaseBufferCopy()
 {
+	if (m_bufferCopy)
+		m_bufferCopy->destroy();
 	m_bufferCopy.reset();
 }
 void VKBufferDevice::destroy(bool _bf, bool _mem)
 {
+	if (m_bufferCopy)
+		m_bufferCopy->destroy();
 	if (m_buffer && _bf) {
 		vkDestroyBuffer(m_device, m_buffer, nullptr);
 		m_size = 0;
@@ -275,7 +279,7 @@ VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _st
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageInfo.format = m_format;//VK_FORMAT_R8G8B8A8_UNORM;
-	imageInfo.mipLevels = 1; //纹理分辨率层级，一次减半
+	imageInfo.mipLevels = 1; //纹理分辨率层级，依次减半
 	imageInfo.arrayLayers = 1;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	//imageInfo.tiling = VK_IMAGE_TILING_LINEAR; //cpu传输, no use, use buffer to trans
@@ -380,7 +384,7 @@ void VKBufferImage::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFe
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_image,
-		{ m_width, m_height, 0 }, m_subResourceRange);
+		{ m_width, m_height, 1 }, m_subResourceRange);
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2 });
 	vkImp.run(_queue, _fence);
@@ -403,18 +407,12 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-	//LYJ_VK::VKCommandImageBarrier cmdBarrier2(
-	//	{ m_image },
-	//	{ m_subResourceRange },
-	//	VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
-	//	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-	//	VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBarrier2(
 		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
-		{ m_width, m_height, 0 }, m_subResourceRange);
+		{ m_width, m_height, 1 }, m_subResourceRange);
 
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdBarrier2 });
@@ -423,6 +421,8 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 }
 void VKBufferImage::releaseBufferCopy()
 {
+	if (m_bufferCopy)
+		m_bufferCopy->destroy();
 	m_bufferCopy.reset();
 }
 void VKBufferImage::destroy(bool _bf, bool _mem)
@@ -430,6 +430,8 @@ void VKBufferImage::destroy(bool _bf, bool _mem)
 	if (m_bufferCopy)
 		m_bufferCopy->destroy();
 	if (m_image && _bf) {
+		vkDestroyImageView(m_device, m_imageInfo.imageView, nullptr);
+		vkDestroySampler(m_device, m_imageInfo.sampler, nullptr);
 		vkDestroyImage(m_device, m_image, nullptr);
 		m_size = 0;
 	}

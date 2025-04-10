@@ -42,8 +42,9 @@ public:
 		VkAccessFlags _srcMask=VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
 		VkAccessFlags _dstMask= VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
 		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-		);
+		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, uint32_t dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED
+	);
 	~VKCommandBufferBarrier();
 
 	// 通过 VKCommandAbr 继承
@@ -69,7 +70,8 @@ public:
 		VkImageLayout _srcLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		VkImageLayout _dstLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		VkPipelineStageFlags _srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+		VkPipelineStageFlags _dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, uint32_t dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED
 	);
 	~VKCommandImageBarrier();
 	// 通过 VKCommandAbr 继承

@@ -118,6 +118,7 @@ public:
 	VKFrameBuffer(uint32_t _width, uint32_t _height);
 	~VKFrameBuffer();
 	inline VkFramebuffer getFrameBuffer() { return m_frameBuffer; };
+	inline uint32_t getColorAttachmentCount() { return m_clrAttCnt; }
 
 	VkResult create(VkRenderPass _renderPass, std::vector<VkImageView>& _imageViews);
 	void destroy();
@@ -126,6 +127,7 @@ private:
 	uint32_t m_width;
 	uint32_t m_height;
 	VkDevice m_device = VK_NULL_HANDLE;
+	uint32_t m_clrAttCnt = 0;
 };
 
 class VULKAN_LYJ_API VKPipelineGraphics : public VKPipelineAbr
@@ -163,7 +165,7 @@ private:
 	uint32_t m_vertexCount = 0;
 	ClassResolver m_classResolver;
 	VkExtent2D m_extent{};
-	VkClearValue m_clearColor{ 1.f, 0.f, 0.f, 1.f };
+	std::vector<VkClearValue> m_clearColors;
 
 	//renderpass
 	VkRenderPass m_renderPass = VK_NULL_HANDLE;
