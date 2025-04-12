@@ -118,7 +118,7 @@ public:
 	VKFrameBuffer(uint32_t _width, uint32_t _height);
 	~VKFrameBuffer();
 	inline VkFramebuffer getFrameBuffer() { return m_frameBuffer; };
-	inline uint32_t getColorAttachmentCount() { return m_clrAttCnt; }
+	inline uint32_t getAttachmentCount() { return m_attCnt; }
 
 	VkResult create(VkRenderPass _renderPass, std::vector<VkImageView>& _imageViews);
 	void destroy();
@@ -127,7 +127,7 @@ private:
 	uint32_t m_width;
 	uint32_t m_height;
 	VkDevice m_device = VK_NULL_HANDLE;
-	uint32_t m_clrAttCnt = 0;
+	uint32_t m_attCnt = 0;
 };
 
 class VULKAN_LYJ_API VKPipelineGraphics : public VKPipelineAbr
@@ -140,7 +140,9 @@ public:
 	void setVertexBuffer(VKBufferVertex* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
 	void setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt);
 	void setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image);
+	void setDepthImage(std::shared_ptr<VKBufferImage>& _depthImage);
 	std::shared_ptr<VKBufferImage> getImage(int _cnti, int _atti);
+	std::shared_ptr<VKBufferImage> getDepthImage();
 	inline std::shared_ptr<VKFrameBuffer> getFrameBuffer(int _i) { return m_framebuffers[_i]; };
 	inline VkRenderPass getRenderPass() { return m_renderPass; };
 	inline void setCurId(int _curId) { m_curId = _curId; }
@@ -175,6 +177,7 @@ private:
 	std::vector<VkPipelineColorBlendAttachmentState> m_colorBlendAttachmentStates;
 	std::vector<VkViewport> m_viewports;
 	std::vector<VkRect2D> m_scissors;
+	VkPipelineColorBlendAttachmentState m_clrBlend{};
 
 	//run
 	int m_curId = 0;
@@ -183,6 +186,7 @@ private:
 	std::vector<std::vector<std::shared_ptr<VKBufferImage>>> m_images;//every std::vector<VkFormat> is same
 	std::vector<int> m_attachLocations;//every std::vector<VkFormat> is same
 	std::vector<std::shared_ptr<VKFrameBuffer>> m_framebuffers;
+	std::shared_ptr<VKBufferImage> m_depthImage = nullptr;
 };
 
 

@@ -293,6 +293,9 @@ VkResult VKInstance::createPhysicalDevice()
 		}
 		return ret;
 		};
+	//m_enableDeviceExtensions.push_back("VK_KHR_separate_depth_stencil_layouts");
+	//m_enableDeviceExtensions.push_back("VK_KHR_get_physical_device_properties2");
+	//m_enableDeviceExtensions.push_back("VK_KHR_create_renderpass2");
 	if (m_bGlfw) {
 		m_enableDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		VkResult ret = createSurface(m_instance, m_windows);

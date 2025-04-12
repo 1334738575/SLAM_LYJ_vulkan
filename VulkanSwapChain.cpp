@@ -79,7 +79,7 @@ VKSwapChain::VKSwapChain(uint32_t _imageCnt)
 	m_imageDeviceSize = w * h * c * step;
 	m_imagePtrs.resize(m_imageCnt, nullptr);
 	for (int i = 0; i < m_imageCnt; ++i)
-		m_imagePtrs[i].reset(new LYJ_VK::VKBufferImage(m_images[i], m_imageViews[i], w, h, c, step, VK_FORMAT_R8G8B8A8_UNORM));
+		m_imagePtrs[i].reset(new LYJ_VK::VKBufferColorImage(m_images[i], m_imageViews[i], w, h, c, step, VKBufferImage::IMAGEVALUETYPE::UINT8));
 }
 VKSwapChain::~VKSwapChain()
 {

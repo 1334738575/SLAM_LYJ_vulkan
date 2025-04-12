@@ -40,9 +40,9 @@ private:
 
 struct ShaderData
 {
-	glm::mat4 projectionMatrix;
-	glm::mat4 moduleMatrix;
-	glm::mat4 viewMatrix;
+	glm::mat4 moduleMatrix; //局部坐标系转换到世界坐标系
+	glm::mat4 viewMatrix; //世界坐标系转换到相机坐标系
+	glm::mat4 projectionMatrix; //相机坐标系转换到裁剪坐标系
 };
 struct Vertex
 {
@@ -74,6 +74,7 @@ private:
 	std::shared_ptr<LYJ_VK::VKBufferVertex> m_verBuffer = nullptr;
 	std::shared_ptr<LYJ_VK::VKBufferIndex> m_indBuffer = nullptr;
 	std::vector< std::shared_ptr<LYJ_VK::VKBufferImage>> m_imgs;
+	std::shared_ptr<LYJ_VK::VKBufferImage> m_depthImage = nullptr;
 	std::vector < std::shared_ptr<LYJ_VK::VKImp>> m_imps;
 	int m_cnt = 0;
 

@@ -17,7 +17,8 @@ public:
 		COMPUTE,
 		VERTEX,
 		INDEX,
-		TEXTURE,
+		COLOR,
+		SAMPLER,
 		DEPTH
 	};
 	VKBufferAbr();
@@ -153,9 +154,21 @@ private:
 class VULKAN_LYJ_API VKBufferImage : public VKBufferAbr
 {
 public:
+	enum class IMAGEVALUETYPE
+	{
+		UINT8,
+		INT8,
+		UINT32,
+		INT32,
+		FLOAT32
+	};
+
 	VKBufferImage() = delete;
-	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type=BUFFERTYPE::TEXTURE, bool _bb=false);
-	VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type = BUFFERTYPE::TEXTURE); //for tmp
+	VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+		IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type);
+	VKBufferImage(VkImage _image, VkImageView _imageView,
+		uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+		IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type); //for tmp
 	~VKBufferImage();
 
 	inline const uint32_t getWidth() const { return m_width; };
@@ -171,8 +184,68 @@ public:
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override;
 	void destroy(bool _bf = true, bool _mem = true) override;
-private:
-
+protected:
+	static VkFormat getFormat(uint32_t _c, IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
+	{
+		if (_type == BUFFERTYPE::DEPTH)
+			//return VK_FORMAT_D32_SFLOAT_S8_UINT; //深度+模板
+			return VK_FORMAT_D32_SFLOAT; //深度
+		switch (_imageValueType) {
+		case IMAGEVALUETYPE::UINT8:
+			switch (_c) {
+			case 1: return VK_FORMAT_R8_UNORM;
+			case 2: return VK_FORMAT_R8G8_UNORM;
+			case 3: return VK_FORMAT_R8G8B8_UNORM;
+			case 4: return VK_FORMAT_R8G8B8A8_UNORM;
+			default: break;
+			}
+			break;
+		case IMAGEVALUETYPE::INT8:
+			switch (_c) {
+			case 1: return VK_FORMAT_R8_SNORM;
+			case 2: return VK_FORMAT_R8G8_SNORM;
+			case 3: return VK_FORMAT_R8G8B8_SNORM;
+			case 4: return VK_FORMAT_R8G8B8A8_SNORM;
+			default: break;
+			}
+			break;
+		case IMAGEVALUETYPE::UINT32:
+			switch (_c) {
+			case 1: return VK_FORMAT_R32_UINT;
+			case 2: return VK_FORMAT_R32G32_UINT;
+			case 3: return VK_FORMAT_R32G32B32_UINT;
+			case 4: return VK_FORMAT_R32G32B32A32_UINT;
+			default: break;
+			}
+			break;
+		case IMAGEVALUETYPE::INT32:
+			switch (_c) {
+			case 1: return VK_FORMAT_R32_SINT;
+			case 2: return VK_FORMAT_R32G32_SINT;
+			case 3: return VK_FORMAT_R32G32B32_SINT;
+			case 4: return VK_FORMAT_R32G32B32A32_SINT;
+			default: break;
+			}
+			break;
+		case IMAGEVALUETYPE::FLOAT32:
+			switch (_c) {
+			case 1: return VK_FORMAT_R32_SFLOAT;
+			case 2: return VK_FORMAT_R32G32_SFLOAT;
+			case 3: return VK_FORMAT_R32G32B32_SFLOAT;
+			case 4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+			default: break;
+			}
+			break;
+		default:
+			return VK_FORMAT_UNDEFINED;
+		}
+		return VK_FORMAT_UNDEFINED;
+	}
+	void create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+		IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type);
+	void create(VkImage _image, VkImageView _imageView,
+		uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+		IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type); //for tmp
 
 protected:
 	std::shared_ptr<VKBufferTrans> m_bufferCopy = nullptr;
@@ -180,10 +253,33 @@ protected:
 	uint32_t m_height = 0;
 	uint32_t m_channels = 0;
 	uint32_t m_step = 1;
-	VkFormat m_format;
+	VkFormat m_format = VK_FORMAT_UNDEFINED;
 	VkImageSubresourceRange m_subResourceRange{};
 };
 
+class VULKAN_LYJ_API VKBufferColorImage : public VKBufferImage
+{
+public:
+	VKBufferColorImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType);
+	VKBufferColorImage(VkImage _image, VkImageView _imageView,
+		uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+		IMAGEVALUETYPE _imageValueType);
+	~VKBufferColorImage();
+};
+
+class VULKAN_LYJ_API VKBufferSamplerImage : public VKBufferImage
+{
+public:
+	VKBufferSamplerImage(uint32_t _w, uint32_t _h, uint32_t _c = 4, uint32_t _step = 1, IMAGEVALUETYPE _imageValueType = IMAGEVALUETYPE::UINT8);
+	~VKBufferSamplerImage();
+};
+
+class VULKAN_LYJ_API VKBufferDepthImage : public VKBufferImage
+{
+public:
+	VKBufferDepthImage(uint32_t _w, uint32_t _h);
+	~VKBufferDepthImage();
+};
 
 
 

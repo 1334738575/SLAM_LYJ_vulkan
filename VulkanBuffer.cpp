@@ -264,96 +264,13 @@ VKBufferIndex::~VKBufferIndex()
 
 
 
-VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type, bool _bb)
-	: m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
+VKBufferImage::VKBufferImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
 {
-	if(_bb)
-		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-	else
-		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	m_type = _type;
-
-	m_size = m_width * m_height * m_channels * m_step;
-	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = m_format;//VK_FORMAT_R8G8B8A8_UNORM;
-	imageInfo.mipLevels = 1; //纹理分辨率层级，依次减半
-	imageInfo.arrayLayers = 1;
-	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	//imageInfo.tiling = VK_IMAGE_TILING_LINEAR; //cpu传输, no use, use buffer to trans
-	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; //渲染，深度，颜色附件
-	imageInfo.usage = m_imageUsageFlags;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageInfo.extent.width = m_width;
-	imageInfo.extent.height = m_height;
-	imageInfo.extent.depth = 1;
-	VK_CHECK_RESULT(vkCreateImage(m_device, &imageInfo, nullptr, &m_image));
-	VkMemoryRequirements memRequirements{};
-	vkGetImageMemoryRequirements(m_device, m_image, &memRequirements);
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = GetLYJVKInstance()->getMemoryTypeIndex(memRequirements.memoryTypeBits, m_memoryPropertyFlags);
-	VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocInfo, nullptr, &m_memory));
-	VK_CHECK_RESULT(vkBindImageMemory(m_device, m_image, m_memory, 0));
-
-	m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	m_subResourceRange.baseMipLevel = 0;
-	m_subResourceRange.baseArrayLayer = 0;
-	m_subResourceRange.levelCount = 1;
-	m_subResourceRange.layerCount = 1;
-
-	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	if (!_bb) {
-		VkSamplerCreateInfo samplerCreateInfo{};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.maxAnisotropy = 1.f;
-		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.f;
-		samplerCreateInfo.maxLod = 0.f;
-		samplerCreateInfo.maxAnisotropy = 1.0;
-		samplerCreateInfo.anisotropyEnable = VK_FALSE;
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_imageInfo.sampler));
-	}
-
-	VkImageViewCreateInfo viewCreateInfo{};
-	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewCreateInfo.format = m_format;
-	viewCreateInfo.subresourceRange = m_subResourceRange;
-	viewCreateInfo.image = m_image;
-	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
+	create(_w, _h, _c, _step, _imageValueType, _type);
 }
-VKBufferImage::VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, VkFormat _format, BUFFERTYPE _type)
-	:m_width(_w), m_height(_h), m_channels(_c), m_step(_step), m_format(_format)
+VKBufferImage::VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
 {
-	m_image = _image;
-	m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	m_type = _type;
-
-	m_size = m_width * m_height * m_channels;
-
-	m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	m_subResourceRange.baseMipLevel = 0;
-	m_subResourceRange.baseArrayLayer = 0;
-	m_subResourceRange.levelCount = 1;
-	m_subResourceRange.layerCount = 1;
-
-	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	m_imageInfo.imageView = _imageView;
+	create(_image, _imageView, _w, _h, _c, _step, _imageValueType, _type);
 }
 VKBufferImage::~VKBufferImage()
 {}
@@ -401,21 +318,30 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 	m_bufferCopy.reset(new VKBufferTrans());
 	void* ret = m_bufferCopy->download(_size);
 
+	VkImageLayout imgLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	if(m_type == BUFFERTYPE::DEPTH)
+		imgLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
 		{ m_image },
 		{ m_subResourceRange },
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		imgLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBarrier2(
 		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
+		{ m_image },
+		{ m_subResourceRange },
+		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imgLayout,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
 		{ m_width, m_height, 1 }, m_subResourceRange);
 
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdBarrier2 });
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdBarrier2, &cmdImageBarrier2 });
 	vkImp.run(_queue, _fence);
 	return ret;
 }
@@ -439,6 +365,137 @@ void VKBufferImage::destroy(bool _bf, bool _mem)
 		vkFreeMemory(m_device, m_memory, nullptr);
 		m_capacity = 0;
 	}
+}
+void VKBufferImage::create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
+	IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
+{
+	m_width = _w;
+	m_height = _h;
+	m_channels = _c;
+	m_step = _step;
+	m_format = getFormat(_c, _imageValueType, _type);
+	m_type = _type;
+	if (m_type == BUFFERTYPE::COLOR)
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	else if (m_type == BUFFERTYPE::SAMPLER)
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	else if (m_type == BUFFERTYPE::DEPTH)
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	m_size = m_width * m_height * m_channels * m_step;
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.format = m_format;//VK_FORMAT_R8G8B8A8_UNORM;
+	imageInfo.mipLevels = 1; //纹理分辨率层级，依次减半
+	imageInfo.arrayLayers = 1;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	//imageInfo.tiling = VK_IMAGE_TILING_LINEAR; //cpu传输, no use, use buffer to trans
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; //渲染，深度，颜色附件
+	imageInfo.usage = m_imageUsageFlags;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.extent.width = m_width;
+	imageInfo.extent.height = m_height;
+	imageInfo.extent.depth = 1;
+	VK_CHECK_RESULT(vkCreateImage(m_device, &imageInfo, nullptr, &m_image));
+	VkMemoryRequirements memRequirements{};
+	vkGetImageMemoryRequirements(m_device, m_image, &memRequirements);
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = GetLYJVKInstance()->getMemoryTypeIndex(memRequirements.memoryTypeBits, m_memoryPropertyFlags);
+	VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocInfo, nullptr, &m_memory));
+	VK_CHECK_RESULT(vkBindImageMemory(m_device, m_image, m_memory, 0));
+
+	if (m_type == BUFFERTYPE::COLOR || m_type == BUFFERTYPE::SAMPLER)
+		m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	else if(m_type == BUFFERTYPE::DEPTH)
+		m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	m_subResourceRange.baseMipLevel = 0;
+	m_subResourceRange.baseArrayLayer = 0;
+	m_subResourceRange.levelCount = 1;
+	m_subResourceRange.layerCount = 1;
+
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	if (m_type == BUFFERTYPE::COLOR || m_type == BUFFERTYPE::SAMPLER) {
+		VkSamplerCreateInfo samplerCreateInfo{};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.maxAnisotropy = 1.f;
+		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.mipLodBias = 0.f;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+		samplerCreateInfo.minLod = 0.f;
+		samplerCreateInfo.maxLod = 0.f;
+		samplerCreateInfo.maxAnisotropy = 1.0;
+		samplerCreateInfo.anisotropyEnable = VK_FALSE;
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerCreateInfo, nullptr, &m_imageInfo.sampler));
+	}
+
+	VkImageViewCreateInfo viewCreateInfo{};
+	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.format = m_format;
+	viewCreateInfo.subresourceRange = m_subResourceRange;
+	viewCreateInfo.image = m_image;
+	VK_CHECK_RESULT(vkCreateImageView(m_device, &viewCreateInfo, nullptr, &m_imageInfo.imageView));
+}
+void VKBufferImage::create(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
+{
+	m_width = _w;
+	m_height = _h;
+	m_channels = _c;
+	m_step = _step;
+	m_format = getFormat(_c, _imageValueType, _type);
+	m_image = _image;
+	m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	m_type = _type;
+	m_size = m_width * m_height * m_channels;
+	m_subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	m_subResourceRange.baseMipLevel = 0;
+	m_subResourceRange.baseArrayLayer = 0;
+	m_subResourceRange.levelCount = 1;
+	m_subResourceRange.layerCount = 1;
+	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imageInfo.imageView = _imageView;
+}
+
+
+VKBufferColorImage::VKBufferColorImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType)
+	:VKBufferImage(_w, _h, _c, _step, _imageValueType, BUFFERTYPE::COLOR)
+{
+
+}
+VKBufferColorImage::VKBufferColorImage(VkImage _image, VkImageView _imageView, uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType)
+	:VKBufferImage(_image, _imageView, _w, _h, _c, _step, _imageValueType, BUFFERTYPE::SAMPLER)
+{
+}
+VKBufferColorImage::~VKBufferColorImage()
+{}
+
+VKBufferSamplerImage::VKBufferSamplerImage(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step, IMAGEVALUETYPE _imageValueType)
+	:VKBufferImage(_w, _h, _c, _step, _imageValueType, BUFFERTYPE::SAMPLER)
+{
+}
+VKBufferSamplerImage::~VKBufferSamplerImage()
+{
+}
+
+VKBufferDepthImage::VKBufferDepthImage(uint32_t _w, uint32_t _h)
+	:VKBufferImage(_w, _h, 1, 4, IMAGEVALUETYPE::FLOAT32, BUFFERTYPE::DEPTH)
+{
+}
+VKBufferDepthImage::~VKBufferDepthImage()
+{
 }
 
 NSP_VULKAN_LYJ_END

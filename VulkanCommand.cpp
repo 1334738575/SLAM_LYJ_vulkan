@@ -186,11 +186,7 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = m_dstImage;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange = m_dstSubResourceRange;
 
         // 提交图像布局转换
         vkCmdPipelineBarrier(
@@ -223,11 +219,7 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = m_srcImage;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange = m_srcSubResourceRange;
 
         // 提交图像布局转换
         vkCmdPipelineBarrier(
@@ -260,11 +252,7 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = m_srcImage;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange = m_srcSubResourceRange;
 
         // 提交图像布局转换
         vkCmdPipelineBarrier(
@@ -283,11 +271,7 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
         barrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier2.image = m_dstImage;
-        barrier2.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier2.subresourceRange.baseMipLevel = 0;
-        barrier2.subresourceRange.levelCount = 1;
-        barrier2.subresourceRange.baseArrayLayer = 0;
-        barrier2.subresourceRange.layerCount = 1;
+        barrier2.subresourceRange = m_dstSubResourceRange;
 
         // 提交图像布局转换
         vkCmdPipelineBarrier(

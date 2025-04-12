@@ -1,5 +1,6 @@
 #include "test.h"
-
+#include "glm/glm.hpp"
+#include "glm/ext.hpp"
 
 static std::string shaderPath = "D:/testLyj/Vulkan/shader/";
 static std::string imagePath = "D:/SLAM_LYJ/other/";
@@ -199,7 +200,7 @@ void VKGraphicTest::init() {
 
 		const int width = image.cols;
 		const int height = image.rows;
-		m_image.reset(new LYJ_VK::VKBufferImage(width, height, 4, 1, VK_FORMAT_R8G8B8A8_UNORM));
+		m_image.reset(new LYJ_VK::VKBufferSamplerImage(width, height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
 		//m_image->upload(width* height * 4, image.data, graphicQueue);
 		LYJ_VK::VKFence fence;
 		m_image->upload(width * height * 4, image.data, graphicQueue, fence.ptr());
@@ -218,10 +219,10 @@ void VKGraphicTest::init() {
 		VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
 		std::vector<Vertex> vertices =
 		{
-			{{edgeRatio, edgeRatio, 0.f}, {textureEdgeRatio, textureEdgeRatio}, {0.f, 0.f, 1.f}},
-			{{-edgeRatio, edgeRatio, 0.f}, {0.f, textureEdgeRatio}, {0.f, 0.f, 1.f}},
-			{{-edgeRatio, -edgeRatio, 0.f}, {0.f, 0.f}, {0.f, 0.f, 1.f}},
-			{{edgeRatio, -edgeRatio, 0.f}, {textureEdgeRatio, 0.f}, {0.f, 0.f, 1.f}}
+			{{edgeRatio, edgeRatio, 0.5f}, {textureEdgeRatio, textureEdgeRatio}, {0.f, 0.f, 1.f}},
+			{{-edgeRatio, edgeRatio, 0.5f}, {0.f, textureEdgeRatio}, {0.f, 0.f, 1.f}},
+			{{-edgeRatio, -edgeRatio, 0.5f}, {0.f, 0.f}, {0.f, 0.f, 1.f}},
+			{{edgeRatio, -edgeRatio, 0.5f}, {textureEdgeRatio, 0.f}, {0.f, 0.f, 1.f}}
 		};
 		std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
 		m_verBuffer.reset(new LYJ_VK::VKBufferVertex());
@@ -262,14 +263,20 @@ void VKGraphicTest::init() {
 		for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i) {
 			std::shared_ptr<LYJ_VK::VKBufferImage> img;
 			std::shared_ptr<LYJ_VK::VKBufferImage> img2;
-			img.reset(new LYJ_VK::VKBufferImage(extent2D.width, extent2D.height, 4, 1, VK_FORMAT_R8G8B8A8_UNORM, LYJ_VK::VKBufferAbr::BUFFERTYPE::TEXTURE, true));
-			img2.reset(new LYJ_VK::VKBufferImage(extent2D.width, extent2D.height, 4, 1, VK_FORMAT_R8G8B8A8_UNORM, LYJ_VK::VKBufferAbr::BUFFERTYPE::TEXTURE, true));
+			std::shared_ptr<LYJ_VK::VKBufferImage> img3;
+			img.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
+			img2.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
+			img3.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
 			m_pipelineGraphics->setImage(i, 0, images[i]);
 			m_pipelineGraphics->setImage(i, 1, img);
 			m_pipelineGraphics->setImage(i, 2, img2);
+			m_pipelineGraphics->setImage(i, 3, img3);
 			m_imgs.push_back(img);
 			m_imgs.push_back(img2);
+			m_imgs.push_back(img3);
 		}
+		m_depthImage.reset(new LYJ_VK::VKBufferDepthImage(extent2D.width, extent2D.height));
+		m_pipelineGraphics->setDepthImage(m_depthImage);
 	}
 	m_pipelineGraphics->build();
 	//return;
@@ -320,22 +327,43 @@ void VKGraphicTest::drawFrame() {
 	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, m_availableSemaphore->ptr(), VK_NULL_HANDLE, &imageIndex);
 	m_pipelineGraphics->setCurId(imageIndex);
 	//get image in swapchain
-	if(m_cnt && false){
+	if(m_cnt && true){
 		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
-		int w = extent2D.width;
-		int h = extent2D.height;
-		int c = 4;
-		int step = 1;
-		int s = w * h * c * step;
-		auto lyjImg = m_pipelineGraphics->getImage(0, 1);
-		LYJ_VK::VKFence fenceTmp;
-		void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
-		fenceTmp.wait();
-		cv::Mat mmm(h, w, CV_8UC4);
-		memcpy(mmm.data, data, s);
-		lyjImg->releaseBufferCopy();
-		cv::imshow("111", mmm);
-		//cv::waitKey();
+
+		{
+			auto lyjImg = m_pipelineGraphics->getImage(0, 3);
+			int w = extent2D.width;
+			int h = extent2D.height;
+			int c = lyjImg->getChannels();
+			int step = lyjImg->getStep();
+			int s = w * h * c * step;
+			LYJ_VK::VKFence fenceTmp;
+			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
+			fenceTmp.wait();
+			cv::Mat mmm(h, w, CV_8UC4);
+			//cv::Mat mmm(h, w, CV_32FC4);
+			memcpy(mmm.data, data, s);
+			lyjImg->releaseBufferCopy();
+			cv::imshow("111", mmm);
+			//cv::waitKey();
+		}
+		{
+			auto lyjDepth = m_pipelineGraphics->getDepthImage();
+			int w = extent2D.width;
+			int h = extent2D.height;
+			int c = lyjDepth->getChannels();
+			int step = lyjDepth->getStep();
+			int s = w * h * c * step;
+			LYJ_VK::VKFence fenceTmp;
+			void* data = lyjDepth->download(s, graphicQueue, fenceTmp.ptr());
+			fenceTmp.wait();
+			cv::Mat mmm(h, w, CV_32FC1);
+			memcpy(mmm.data, data, s);
+			float* ppp = (float*)mmm.data;
+			lyjDepth->releaseBufferCopy();
+			cv::imshow("222", mmm);
+			//cv::waitKey();
+		}
 	}
 	ShaderData shaderData{};
 	float xof = (m_cnt++ / 100) * 0.1f;
@@ -346,6 +374,9 @@ void VKGraphicTest::drawFrame() {
 		0.0f, 0.0f, 1.0f, 0.0f,
 		xof, 0.0f, 0.0f, 1.0f
 	);
+	const VkExtent2D& extent2D = m_swapChain->getExtent2D();
+	//shaderData.projectionMatrix = glm::perspective(glm::radians(-90.0f), (float)extent2D.width / (float)extent2D.width, 0.1f, 2.f);
+	//shaderData.projectionMatrix *= -1;
 	shaderData.viewMatrix = glm::mat4(
 		1.0f, 0.0f, 0.0f, 0.0f,
 		0.0f, 1.0f, 0.0f, 0.0f,
@@ -391,6 +422,8 @@ void VKGraphicTest::cleanup() {
 	for (auto img : m_imgs)
 		if (img)
 			img->destroy();
+	if (m_depthImage)
+		m_depthImage->destroy();
 	for (auto uniBuffer : m_uniBuffers)
 		if (uniBuffer)
 			uniBuffer->destroy();

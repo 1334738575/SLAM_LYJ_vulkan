@@ -58,11 +58,11 @@ VkResult VKPipelineAbr::createVKDescriptorPool()
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE && cnt == 0) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER) {
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR) {
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
@@ -92,11 +92,11 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE && cnt == 0 ) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER) {
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::TEXTURE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR) {
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
@@ -243,7 +243,7 @@ VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView
 	framebufferInfo.width = m_width;
 	framebufferInfo.height = m_height;
 	framebufferInfo.layers = 1;
-	m_clrAttCnt = _imageViews.size();
+	m_attCnt = _imageViews.size();
 	return vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_frameBuffer);
 }
 void VKFrameBuffer::destroy()
@@ -279,9 +279,17 @@ void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBuffer
 	//if (_atti > 0)
 	//	setBufferBinding(_atti, _image.get(), _cnti);
 }
+void VKPipelineGraphics::setDepthImage(std::shared_ptr<VKBufferImage>& _depthImage)
+{
+	m_depthImage = _depthImage;
+}
 std::shared_ptr<VKBufferImage> VKPipelineGraphics::getImage(int _cnti, int _atti)
 {
 	return m_images[_cnti][_atti];
+}
+std::shared_ptr<VKBufferImage> VKPipelineGraphics::getDepthImage()
+{
+	return m_depthImage;
 }
 VkResult VKPipelineGraphics::createPipeline()
 {
@@ -352,13 +360,16 @@ VkResult VKPipelineGraphics::createPipeline()
 
 	VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo{};
 	depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
+	depthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
+	depthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilStateCreateInfo;
 
-	VkPipelineColorBlendAttachmentState tmp{};
-	tmp.colorWriteMask = 0b1111;
-	m_colorBlendAttachmentStates.push_back(tmp);
-	m_colorBlendAttachmentStates.push_back(tmp);
-	m_colorBlendAttachmentStates.push_back(tmp);
+	m_clrBlend.colorWriteMask = 0b1111;
+	m_colorBlendAttachmentStates.clear();
+	int clrAttCnt = m_attachLocations.size() / m_framebuffers.size();
+	for(int i=0;i< clrAttCnt;++i)
+		m_colorBlendAttachmentStates.push_back(m_clrBlend);
 	VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
 	colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlendStateCreateInfo.attachmentCount = (uint32_t)m_colorBlendAttachmentStates.size();
@@ -372,7 +383,7 @@ VkResult VKPipelineGraphics::createPipeline()
 	dynamicStateCreateInfo.dynamicStateCount = (uint32_t)m_dynamicStates.size();
 	dynamicStateCreateInfo.pDynamicStates = m_dynamicStates.data();
 	pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
-
+	
 	VkResult ret = vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
 	vkDestroyShaderModule(m_device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(m_device, vertShaderModule, nullptr);
@@ -382,13 +393,14 @@ VkResult VKPipelineGraphics::createRenderPass()
 {
 	if (m_images.empty())
 		return VK_SUCCESS;
-	uint32_t attachSize = m_images[0].size();
-	if (attachSize == 0)
+	uint32_t clrAttachSize = m_images[0].size();
+	uint32_t dpAttachSize = m_depthImage ? 1 : 0;
+	if (clrAttachSize == 0 && dpAttachSize == 0)
 		return VK_SUCCESS;
 
 	//附件所有子通道共享
-	std::vector<VkAttachmentDescription> colorAttachments(attachSize);
-	for (int i = 0; i < attachSize; ++i) {
+	std::vector<VkAttachmentDescription> attachments(clrAttachSize + dpAttachSize);
+	for (int i = 0; i < clrAttachSize; ++i) {
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = m_images[0][i]->getFormat();
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -397,28 +409,43 @@ VkResult VKPipelineGraphics::createRenderPass()
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		if(m_images[0][i]->getType() == VKBufferAbr::BUFFERTYPE::TEXTURE)
-			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		if (m_images[0][i]->getType() == VKBufferAbr::BUFFERTYPE::DEPTH)
-			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-		colorAttachments[i] = colorAttachment;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachments[i] = colorAttachment;
+	}
+	VkAttachmentDescription dpAttachment{};
+	if (dpAttachSize) {
+		dpAttachment.format = m_depthImage->getFormat();
+		dpAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		dpAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		dpAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		dpAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		dpAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		dpAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		dpAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		//dpAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+		attachments[clrAttachSize] = dpAttachment;
 	}
 
 	//附件引用
-	std::vector<VkAttachmentReference> attachmentRefs(attachSize);
-	for (int i = 0; i < attachSize; ++i) {
+	std::vector<VkAttachmentReference> clrAttachmentRefs(clrAttachSize);
+	for (int i = 0; i < clrAttachSize; ++i) {
 		VkAttachmentReference attachmentRef{};
 		attachmentRef.attachment = i;
 		attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		attachmentRefs[i] = attachmentRef;
+		clrAttachmentRefs[i] = attachmentRef;
 	}
+	VkAttachmentReference dpAttachmentRef{};
+	dpAttachmentRef.attachment = clrAttachSize;
+	dpAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//dpAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
 	//子通道
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = attachmentRefs.size();
-	subpass.pColorAttachments = &attachmentRefs.front();
-	//subpass.pDepthStencilAttachment;
+	subpass.colorAttachmentCount = clrAttachmentRefs.size();
+	subpass.pColorAttachments = &clrAttachmentRefs.front();
+	if (dpAttachSize)
+		subpass.pDepthStencilAttachment = &dpAttachmentRef;
 
 	//子通道之间的依赖
 	//VkSubpassDependency dependency{};
@@ -447,8 +474,8 @@ VkResult VKPipelineGraphics::createRenderPass()
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = attachSize;
-	renderPassInfo.pAttachments = &colorAttachments.front();
+	renderPassInfo.attachmentCount = clrAttachSize + dpAttachSize;
+	renderPassInfo.pAttachments = &attachments.front();
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
 	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
@@ -464,8 +491,12 @@ VkResult VKPipelineGraphics::createFrameBuffers()
 		int imgSize = m_images[i].size();
 		m_framebuffers[i].reset(new LYJ_VK::VKFrameBuffer(m_images[i][0]->getWidth(), m_images[i][0]->getHeight()));
 		std::vector<VkImageView> attachments(imgSize);
+		if (m_depthImage)
+			attachments.resize(imgSize + 1);
 		for (size_t j = 0; j < imgSize; ++j)
 			attachments[j] = m_images[i][j]->getImageInfo()->imageView;
+		if (m_depthImage)
+			attachments[imgSize] = m_depthImage->getImageInfo()->imageView;
 		if (m_framebuffers[i]->create(m_renderPass, attachments) != VK_SUCCESS)
 			throw std::runtime_error("failed to create framebuffer");
 	}
@@ -491,11 +522,18 @@ void VKPipelineGraphics::destroy()
 }
 void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 {
-	uint32_t clrAttCnt = m_framebuffers.at(m_curId)->getColorAttachmentCount();
-	m_clearColors.resize(clrAttCnt);
-	for (uint32_t i = 0; i < clrAttCnt; ++i) {
-		m_clearColors[i] = VkClearValue{};
-		m_clearColors[i].color = { 1.f, 0.f, 0.f, 1.f };
+	uint32_t attCnt = m_framebuffers.at(m_curId)->getAttachmentCount();
+	m_clearColors.resize(attCnt);
+	for (uint32_t i = 0; i < attCnt; ++i) {
+		if (m_depthImage && i == (attCnt - 1)) {
+			m_clearColors[i] = VkClearValue{};
+			//取决于depthStencilStateCreateInfo深度比较方式，保留小值时，只能使用1.0f，反之只能使用0.0f
+			m_clearColors[i].depthStencil = { 1.0f, 0 };
+		}
+		else {
+			m_clearColors[i] = VkClearValue{};
+			m_clearColors[i].color = { 0.f, 0.f, 0.f, 1.f };
+		}
 	}
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -505,7 +543,7 @@ void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 	renderPassBeginInfo.renderArea.offset.y = 0;
 	renderPassBeginInfo.renderArea.extent.width = m_extent.width;
 	renderPassBeginInfo.renderArea.extent.height = m_extent.height;
-	renderPassBeginInfo.clearValueCount = clrAttCnt;
+	renderPassBeginInfo.clearValueCount = attCnt;
 	renderPassBeginInfo.pClearValues = &m_clearColors.front();
 	vkCmdBeginRenderPass(_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 

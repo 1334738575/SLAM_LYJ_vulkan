@@ -30,6 +30,7 @@ find_package(Glfw)
 include_directories(${GLFW_INCLUDE_DIRS})
 #glm
 find_package(glm)
+include_directories(${GLM_INCLUDE_DIRS})
 
 # vulkan shader compile
 macro(GenShader args)
@@ -81,7 +82,8 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC ${GLFW_INCLUDE_DIRS}
 )
         
-target_link_libraries(${PROJECT_NAME} ${VULKAN_LIBRARIES} glm::glm ${GLFW_LIBRARIES}  ${OpenCV_LIBS} )
+# target_link_libraries(${PROJECT_NAME} ${VULKAN_LIBRARIES} glm::glm ${GLFW_LIBRARIES}  ${OpenCV_LIBS} )
+target_link_libraries(${PROJECT_NAME} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES}  ${OpenCV_LIBS} )
 
 #output
 if(DEFINED LIBRARY_LYJ_OUTPUT_PATH)
