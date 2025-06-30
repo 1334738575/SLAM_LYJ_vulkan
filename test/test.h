@@ -1,7 +1,7 @@
 #ifndef VULKAN_TEST_H
 #define VULKAN_TEST_H
-//#include <vulkan/vulkan.hpp>
-//#include <GLFW/glfw3.h>
+// #include <vulkan/vulkan.hpp>
+// #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 #include <fstream>
@@ -13,7 +13,6 @@
 #include "../VulkanPipeline.h"
 #include "../VulkanSwapChain.h"
 #include "../VulkanImplement.h"
-
 
 class VULKAN_LYJ_API VKComputeTest
 {
@@ -36,13 +35,11 @@ private:
 	std::shared_ptr<LYJ_VK::VKImp> m_imp = nullptr;
 };
 
-
-
 struct ShaderData
 {
-	glm::mat4 moduleMatrix; //局部坐标系转换到世界坐标系
-	glm::mat4 viewMatrix; //世界坐标系转换到相机坐标系
-	glm::mat4 projectionMatrix; //相机坐标系转换到裁剪坐标系
+	glm::mat4 moduleMatrix;		// 局部坐标系转换到世界坐标系
+	glm::mat4 viewMatrix;		// 世界坐标系转换到相机坐标系
+	glm::mat4 projectionMatrix; // 相机坐标系转换到裁剪坐标系
 };
 struct Vertex
 {
@@ -65,28 +62,26 @@ private:
 	void cleanup();
 
 private:
-	LYJ_VK::VKInstance* m_lyjVK;
+	LYJ_VK::VKInstance *m_lyjVK;
 
+
+	bool m_bPresent = true;
+	int m_imgSize = 2;
 	std::shared_ptr<LYJ_VK::VKSwapChain> m_swapChain = nullptr;
 	std::shared_ptr<LYJ_VK::VKPipelineGraphics> m_pipelineGraphics = nullptr;
 	std::shared_ptr<LYJ_VK::VKBufferImage> m_image = nullptr;
 	std::vector<std::shared_ptr<LYJ_VK::VKBufferUniform>> m_uniBuffers;
 	std::shared_ptr<LYJ_VK::VKBufferVertex> m_verBuffer = nullptr;
 	std::shared_ptr<LYJ_VK::VKBufferIndex> m_indBuffer = nullptr;
-	std::vector< std::shared_ptr<LYJ_VK::VKBufferImage>> m_imgs;
+	std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>> m_imgs;
 	std::shared_ptr<LYJ_VK::VKBufferImage> m_depthImage = nullptr;
-	std::vector < std::shared_ptr<LYJ_VK::VKImp>> m_imps;
+	std::vector<std::shared_ptr<LYJ_VK::VKImp>> m_imps;
 	int m_cnt = 0;
 
-	std::shared_ptr < LYJ_VK::VKFence> m_fence = nullptr;
-	std::shared_ptr < LYJ_VK::VKSemaphore> m_availableSemaphore = nullptr;
-	std::shared_ptr < LYJ_VK::VKSemaphore> m_finishedSemaphore = nullptr;
-	std::vector < std::shared_ptr<LYJ_VK::VKCommandImageBarrier>> m_cmdImgBarriers;
-
+	std::shared_ptr<LYJ_VK::VKFence> m_fence = nullptr;
+	std::shared_ptr<LYJ_VK::VKSemaphore> m_availableSemaphore = nullptr;
+	std::shared_ptr<LYJ_VK::VKSemaphore> m_finishedSemaphore = nullptr;
+	std::vector<std::shared_ptr<LYJ_VK::VKCommandImageBarrier>> m_cmdImgBarriers;
 };
 
-
-
-
-#endif //VULKAN_TEST_H
-
+#endif // VULKAN_TEST_H

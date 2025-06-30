@@ -153,12 +153,17 @@ void VKComputeTest::cleanup()
 
 VKGraphicTest::VKGraphicTest()
 {
-	glfwInit();
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	m_bPresent = false;
+	if (!m_bPresent)
+		m_imgSize = 1;
+	if (m_bPresent) {
+		glfwInit();
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	}
 	m_lyjVK = LYJ_VK::GetLYJVKInstance();
 	if (!m_lyjVK->isInited()) {
-		if (m_lyjVK->init(true, nullptr, true) != VK_SUCCESS) {
+		if (m_lyjVK->init(m_bPresent, nullptr, true) != VK_SUCCESS) {
 			std::cout << "init vulkan fail!" << std::endl;
 			return;
 		}
@@ -170,11 +175,15 @@ VKGraphicTest::~VKGraphicTest()
 }
 void VKGraphicTest::run() {
 	init();
-	mainLoop();
+	if (m_bPresent)
+		mainLoop();
+	else
+		drawFrame();
 }
 void VKGraphicTest::init() {
-	m_pipelineGraphics.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "texture/texture.vert.spv", shaderPath + "texture/texture.frag.spv", 2));
-	m_swapChain.reset(new LYJ_VK::VKSwapChain(2));
+	m_pipelineGraphics.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "texture/texture.vert.spv", shaderPath + "texture/texture.frag.spv", m_imgSize));
+	if(m_bPresent)
+		m_swapChain.reset(new LYJ_VK::VKSwapChain(m_imgSize));
 
 	//texture2d
 	auto funcCreateTextureImage = [&]() {
@@ -182,7 +191,7 @@ void VKGraphicTest::init() {
 		VkCommandPool graphicsCommandPool = m_lyjVK->m_graphicsCommandPool;
 		VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
 		VkPhysicalDeviceMemoryProperties deviceMemoryProperties = m_lyjVK->m_memProperties;
-		uint32_t imgCnt = m_swapChain->getImageCnt();
+		uint32_t imgCnt = m_imgSize;
 
 		std::string imgName = imagePath + "IMG_9179[1](1).png";
 		cv::Mat image1 = cv::imread(imgName, 0);
@@ -209,7 +218,7 @@ void VKGraphicTest::init() {
 		for (int i = 0; i < imgCnt; ++i)
 			m_pipelineGraphics->setBufferBinding(3, m_image.get(), i);
 		};
-	funcCreateTextureImage();
+	//funcCreateTextureImage();
 	//return;
 
 	//vertices and indices buffer
@@ -245,7 +254,7 @@ void VKGraphicTest::init() {
 
 	//uniform buffer
 	auto funcCreateUniformBuffers = [&]() {
-		uint32_t imageCnt = m_swapChain->getImageCnt();
+		uint32_t imageCnt = m_imgSize;
 		m_uniBuffers.resize(imageCnt, nullptr);
 		for (uint32_t i = 0; i < m_uniBuffers.size(); ++i) {
 			m_uniBuffers[i].reset(new LYJ_VK::VKBufferUniform());
@@ -258,32 +267,37 @@ void VKGraphicTest::init() {
 
 	//pipeline
 	{
-		std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>>& images = m_swapChain->getImages();
-		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
-		for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i) {
+		if (m_bPresent) {
+			std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>>& images = m_swapChain->getImages();
+			for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i) {
+				m_pipelineGraphics->setImage(i, 0, images[i]);
+			}
+		}
+		int h = m_lyjVK->m_height;
+		int w = m_lyjVK->m_width;
+		for (size_t i = 0; i < m_imgSize; ++i) {
 			std::shared_ptr<LYJ_VK::VKBufferImage> img;
 			std::shared_ptr<LYJ_VK::VKBufferImage> img2;
 			std::shared_ptr<LYJ_VK::VKBufferImage> img3;
-			img.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
-			img2.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
-			img3.reset(new LYJ_VK::VKBufferColorImage(extent2D.width, extent2D.height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
-			m_pipelineGraphics->setImage(i, 0, images[i]);
-			m_pipelineGraphics->setImage(i, 1, img);
-			m_pipelineGraphics->setImage(i, 2, img2);
-			m_pipelineGraphics->setImage(i, 3, img3);
+			img.reset(new LYJ_VK::VKBufferColorImage(w, h, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
+			img2.reset(new LYJ_VK::VKBufferColorImage(w, h, 1, 4, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT32));
+			img3.reset(new LYJ_VK::VKBufferColorImage(w, h, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
+			m_pipelineGraphics->setImage(i, 1 - int(!m_bPresent), img);
+			m_pipelineGraphics->setImage(i, 2 - int(!m_bPresent), img2);
+			m_pipelineGraphics->setImage(i, 3 - int(!m_bPresent), img3);
 			m_imgs.push_back(img);
 			m_imgs.push_back(img2);
 			m_imgs.push_back(img3);
 		}
-		m_depthImage.reset(new LYJ_VK::VKBufferDepthImage(extent2D.width, extent2D.height));
+		m_depthImage.reset(new LYJ_VK::VKBufferDepthImage(w, h));
 		m_pipelineGraphics->setDepthImage(m_depthImage);
 	}
 	m_pipelineGraphics->build();
 	//return;
 
 	//imp
-	m_imps.resize(m_swapChain->getImageCnt(), nullptr);
-	for (int i = 0; i < m_swapChain->getImageCnt(); ++i) {
+	m_imps.resize(m_imgSize, nullptr);
+	for (int i = 0; i < m_imgSize; ++i) {
 		m_imps[i].reset(new LYJ_VK::VKImp(0));
 		m_imps[i]->setCmds({m_pipelineGraphics.get()});
 	}
@@ -293,14 +307,22 @@ void VKGraphicTest::init() {
 	m_fence.reset(new LYJ_VK::VKFence());
 	m_availableSemaphore.reset(new LYJ_VK::VKSemaphore());
 	m_finishedSemaphore.reset(new LYJ_VK::VKSemaphore());
-	m_cmdImgBarriers.resize(m_swapChain->getImageCnt(), nullptr);
-	for (int i = 0; i < m_swapChain->getImageCnt(); ++i) {
-		m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
-			{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i,0)->getSubresource() },
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
+	m_cmdImgBarriers.resize(m_imgSize, nullptr);
+	for (int i = 0; i < m_imgSize; ++i) {
+		if(m_bPresent)
+			m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
+				{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i,0)->getSubresource() },
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
+		else
+			m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
+				{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i,0)->getSubresource() },
+				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
 	}
 	return;
 }
@@ -320,50 +342,15 @@ void VKGraphicTest::mainLoop() {
 void VKGraphicTest::drawFrame() {
 	VkDevice device = m_lyjVK->m_device;
 	VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
-	VkQueue presentQueue = m_lyjVK->m_presentQueues[0];
-	VkSwapchainKHR swapChain = m_swapChain->getSwapChain();
+	VkQueue presentQueue = nullptr;
+	VkSwapchainKHR swapChain = nullptr;
+	uint32_t imageIndex = 0;
 
-	uint32_t imageIndex;
-	vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, m_availableSemaphore->ptr(), VK_NULL_HANDLE, &imageIndex);
-	m_pipelineGraphics->setCurId(imageIndex);
-	//get image in swapchain
-	if(m_cnt && true){
-		const VkExtent2D& extent2D = m_swapChain->getExtent2D();
-
-		{
-			auto lyjImg = m_pipelineGraphics->getImage(0, 3);
-			int w = extent2D.width;
-			int h = extent2D.height;
-			int c = lyjImg->getChannels();
-			int step = lyjImg->getStep();
-			int s = w * h * c * step;
-			LYJ_VK::VKFence fenceTmp;
-			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
-			fenceTmp.wait();
-			cv::Mat mmm(h, w, CV_8UC4);
-			//cv::Mat mmm(h, w, CV_32FC4);
-			memcpy(mmm.data, data, s);
-			lyjImg->releaseBufferCopy();
-			cv::imshow("111", mmm);
-			//cv::waitKey();
-		}
-		{
-			auto lyjDepth = m_pipelineGraphics->getDepthImage();
-			int w = extent2D.width;
-			int h = extent2D.height;
-			int c = lyjDepth->getChannels();
-			int step = lyjDepth->getStep();
-			int s = w * h * c * step;
-			LYJ_VK::VKFence fenceTmp;
-			void* data = lyjDepth->download(s, graphicQueue, fenceTmp.ptr());
-			fenceTmp.wait();
-			cv::Mat mmm(h, w, CV_32FC1);
-			memcpy(mmm.data, data, s);
-			float* ppp = (float*)mmm.data;
-			lyjDepth->releaseBufferCopy();
-			cv::imshow("222", mmm);
-			//cv::waitKey();
-		}
+	if (m_bPresent) {
+		presentQueue = m_lyjVK->m_presentQueues[0];
+		swapChain = m_swapChain->getSwapChain();
+		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, m_availableSemaphore->ptr(), VK_NULL_HANDLE, &imageIndex);
+		m_pipelineGraphics->setCurId(imageIndex);
 	}
 	ShaderData shaderData{};
 	float xof = (m_cnt++ / 100) * 0.1f;
@@ -391,8 +378,12 @@ void VKGraphicTest::drawFrame() {
 		0.0f, 0.0f, 0.0f, 1.0f
 	);
 	m_uniBuffers[imageIndex]->upload(sizeof(ShaderData), &shaderData, graphicQueue);
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	m_imps[imageIndex]->run(graphicQueue, m_fence->ptr(), {m_availableSemaphore->ptr()}, {m_finishedSemaphore->ptr()}, waitStages);
+	if (m_bPresent) {
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		m_imps[imageIndex]->run(graphicQueue, m_fence->ptr(), { m_availableSemaphore->ptr() }, { m_finishedSemaphore->ptr() }, waitStages);
+	}
+	else
+		m_imps[imageIndex]->run(graphicQueue, m_fence->ptr());
 
 	LYJ_VK::VKImp impTmp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	impTmp.setCmds({ m_cmdImgBarriers[imageIndex].get()});
@@ -400,13 +391,73 @@ void VKGraphicTest::drawFrame() {
 	impTmp.run(graphicQueue, fenceTmp.ptr());
 	fenceTmp.wait();
 	impTmp.destroy();
+	//get image in swapchain
+	if (m_cnt && true) {
+		int h = m_lyjVK->m_height;
+		int w = m_lyjVK->m_width;
 
-	std::vector<VkSwapchainKHR> swapChains = { swapChain };
-	std::vector<uint32_t> imageIndices = { imageIndex };
-	std::vector<VkSemaphore> renderFinishedSemaphores = { m_finishedSemaphore->ptr() };
-	LYJ_VK::VKImpPresent presentImp;
-	if (presentImp.present(presentQueue, swapChains, imageIndices, renderFinishedSemaphores) != VK_SUCCESS) {
-		throw std::runtime_error("failed to present image");
+		{
+			auto lyjImg = m_pipelineGraphics->getImage(0, 1 - int(!m_bPresent));
+			int c = lyjImg->getChannels();
+			int step = lyjImg->getStep();
+			int s = w * h * c * step;
+			LYJ_VK::VKFence fenceTmp;
+			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
+			fenceTmp.wait();
+			cv::Mat mmm(h, w, CV_8UC4);
+			//cv::Mat mmm(h, w, CV_32FC4);
+			memcpy(mmm.data, data, s);
+			lyjImg->releaseBufferCopy();
+			cv::imshow("111", mmm);
+			//cv::waitKey();
+		}
+		{
+			auto lyjImg = m_pipelineGraphics->getImage(0, 2 - int(!m_bPresent));
+			int c = lyjImg->getChannels();
+			int step = lyjImg->getStep();
+			int s = w * h * c * step;
+			LYJ_VK::VKFence fenceTmp;
+			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
+			fenceTmp.wait();
+			cv::Mat mmm(h, w, CV_32SC1);
+			cv::Mat mmm2(h, w, CV_8UC1);
+			memcpy(mmm.data, data, s);
+			lyjImg->releaseBufferCopy();
+			//mmm *= 127;
+			for (int i = 0; i < h; ++i) {
+				for (int j = 0; j < w; ++j) {
+					int fid = mmm.at<int>(i, j);
+					mmm2.at<uchar>(i, j) = (uchar)(fid * 127);
+				}
+			}
+			cv::imshow("333", mmm2);
+			//cv::waitKey();
+		}
+		{
+			auto lyjDepth = m_pipelineGraphics->getDepthImage();
+			int c = lyjDepth->getChannels();
+			int step = lyjDepth->getStep();
+			int s = w * h * c * step;
+			LYJ_VK::VKFence fenceTmp;
+			void* data = lyjDepth->download(s, graphicQueue, fenceTmp.ptr());
+			fenceTmp.wait();
+			cv::Mat mmm(h, w, CV_32FC1);
+			memcpy(mmm.data, data, s);
+			float* ppp = (float*)mmm.data;
+			lyjDepth->releaseBufferCopy();
+			cv::imshow("222", mmm);
+			cv::waitKey();
+		}
+	}
+
+	if (m_bPresent) {
+		std::vector<VkSwapchainKHR> swapChains = { swapChain };
+		std::vector<uint32_t> imageIndices = { imageIndex };
+		std::vector<VkSemaphore> renderFinishedSemaphores = { m_finishedSemaphore->ptr() };
+		LYJ_VK::VKImpPresent presentImp;
+		if (presentImp.present(presentQueue, swapChains, imageIndices, renderFinishedSemaphores) != VK_SUCCESS) {
+			throw std::runtime_error("failed to present image");
+		}
 	}
 }
 void VKGraphicTest::cleanup() {

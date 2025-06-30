@@ -74,8 +74,12 @@ void VKInstance::clean()
 		vkDestroyCommandPool(m_device, m_presentCommandPool, nullptr);
 	}
 	if (m_queueIndices.isCompleteCompute() &&
-		m_queueIndices.computeFamily.value() != m_queueIndices.presentFamily.value() &&
-		m_queueIndices.computeFamily.value() != m_queueIndices.graphicsFamily.value()) {
+		(m_queueIndices.isCompletePresent() && m_queueIndices.computeFamily.value() != m_queueIndices.presentFamily.value() &&
+		m_queueIndices.computeFamily.value() != m_queueIndices.graphicsFamily.value()) ||
+		(!m_queueIndices.isCompletePresent() && m_queueIndices.isCompleteGraphic() &&
+			m_queueIndices.computeFamily.value() != m_queueIndices.graphicsFamily.value()) ||
+		(!m_queueIndices.isCompletePresent() && !m_queueIndices.isCompleteGraphic())
+		) {
 		vkDestroyCommandPool(m_device, m_computeCommandPool, nullptr);
 	}
 	vkDestroyDevice(m_device, nullptr);
@@ -151,12 +155,20 @@ VkResult VKInstance::createInstance()
 		for (const char* enabledExtension : neededInstanceExtensions)
 		{
 			// Output message if requested extension is not available
-			if (std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), enabledExtension) == m_supportInstanceExtensions.end())
+			if (std::find_if(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), [&](const char* _v1) {
+				return strcmp(_v1, enabledExtension) == 0;
+				}
+			) == m_supportInstanceExtensions.end())
+			//if (std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), enabledExtension) == m_supportInstanceExtensions.end())
 				std::cerr << "Enabled instance extension \"" << enabledExtension << "\" is not present at instance level\n";
 			m_enableInstanceExtensions.push_back(enabledExtension);
 		}
 	}
-	if (m_bValid || std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME) != m_supportInstanceExtensions.end()) {
+	//if (m_bValid || std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME) != m_supportInstanceExtensions.end()) {
+	if (m_bValid || 
+		std::find_if(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), [&](const char* _v) {
+			return strcmp(_v, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0;
+			}) != m_supportInstanceExtensions.end()) {
 		m_enableInstanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 	if (m_enableInstanceExtensions.size() > 0) {
