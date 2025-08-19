@@ -1,0 +1,55 @@
+#version 450
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0) uniform UBO
+{
+    uint size;
+    // mat3 R;
+    // vec3 t;
+    // // vec4 K;
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+    uint s;
+    uint w;
+    uint h;
+}ubo;
+layout(binding = 1) buffer Data{
+    float uvds[];
+};
+layout(binding = 2) buffer Data2{
+    float depths[];
+};
+layout(binding = 3) buffer Data3{
+    uint pValids[];
+};
+
+void main()
+{
+    uint ind = gl_GlobalInvocationID.x;
+    if(ind >= ubo.size)
+        return;
+    float u;
+    float v;
+    uint ui;
+    uint vi;
+    for(uint i=ind*ubo.s;i<(ind+1)*ubo.s;++i)
+    {
+        if(i >= ubo.size)
+            return;
+        u = uvds[i*3 + 0];
+        v = uvds[i*3 + 1];
+        if(u >= ubo.w || u < 0 || v >= ubo.h || v > 0)
+            continue;
+        if(uvds[i*3 + 2] <= 0)
+            continue;
+        ui = uint(u);
+        vi = uint(v);
+        if(depths[vi * ubo.w + vi] == 3.402823466e+38F)
+            continue;
+        if(depths[vi * ubo.w + vi] > (uvds[i*3 + 2] - 1) || depths[vi * ubo.w + vi] < (uvds[i*3 + 2] + 1))
+            continue;
+        pValids[i] = 1;
+    }
+}

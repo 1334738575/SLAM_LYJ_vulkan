@@ -518,7 +518,6 @@ void VKGraphicTest::cleanup()
 	m_lyjVK->clean();
 }
 
-
 void testVulkanGraphic()
 {
 	VKGraphicTest vulkan{};
@@ -530,8 +529,170 @@ void testVulkanCompute()
 	vulkan.run();
 }
 
+void testProject()
+{
+	// init
+	LYJ_VK::VKInstance *lyjVK = LYJ_VK::GetLYJVKInstance();
+	if (!lyjVK->isInited())
+	{
+		if (lyjVK->init(false, nullptr, true) != VK_SUCCESS)
+		{
+			std::cout << "init vulkan fail!" << std::endl;
+			return 0;
+		}
+	}
+	// data
+	SLAM_LYJ::BaseTriMesh btmVulkan = btm;
+	const auto &vertexs = btmVulkan.getVertexs();
+	const auto &faces = btmVulkan.getFaces();
+	btmVulkan.enableFCenters();
+	btmVulkan.calculateFCenters();
+	const auto &fCenters = btmVulkan.getFCenters();
+	btmVulkan.enableFNormals();
+	btmVulkan.calculateFNormals();
+	const auto &fNormals = btmVulkan.getFNormals();
+	int vn = btmVulkan.getVn();
+	int fn = btmVulkan.getFn();
+	int w = 2048;
+	int h = 2048;
+	std::vector<float> K{765.955, 766.549, 1024, 1024};
+	Pose3D TcwP;
+	TcwP.getR() << 0.00774473, 0.0383352, 0.999235,
+		-0.0480375, 0.998125, -0.0379202,
+		-0.998815, -0.047707, 0.00957183;
+	TcwP.gett() << -0.0615093,
+		-0.16702,
+		0.011672;
+	Eigen::Matrix<float, 3, 4> T;
+	T.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
+	T.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
+	uint kernel = 1024;
+	struct UBO
+	{
+		uint size;
+		// float T[12];
+		// Eigen::Matrix3f R;
+		// Eigen::Vector3f t;
+		float fx;
+		float fy;
+		float cx;
+		float cy;
+		uint s;
+		uint w;
+		uint h;
+	};
+	UBO uboCPU;
+	uboCPU.size = vn;
+	uboCPU.w = w;
+	uboCPU.h = h;
+	// uboCPU.R = TcwP.getR().cast<float>();
+	// uboCPU.t = TcwP.gett().cast<float>();
+	uboCPU.s = (vn + 1023) / kernel;
+	uboCPU.fx = K[0];
+	uboCPU.fy = K[1];
+	uboCPU.cx = K[2];
+	uboCPU.cy = K[3];
+	// memcpy(uboCPU.T, T.data(), 12 * sizeof(float));
+	std::vector<uint> fIds(w * h, 0);
+	std::vector<float> depths(w * h, FLT_MAX);
+	std::vector<uint> PValids(vn, 0);
+	std::vector<uint> fValids(fn, 0);
+
+	// pipeline
+	// in
+	const VkDeviceSize PBufferSize = vertexs.size() * 3 * sizeof(float);
+	const VkDeviceSize fBufferSize = faces.size() * 3 * sizeof(uint);
+	LYJ_VK::VKFence fence;
+	VkQueue queue = lyjVK->getComputeQueue(0);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> PwsBuffer(new LYJ_VK::VKBufferCompute());
+	PwsBuffer->upload(PBufferSize, (void *)vertexs[0].data(), queue);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fsBuffer(new LYJ_VK::VKBufferCompute());
+	fsBuffer->upload(fBufferSize, (void *)faces[0].vId_, queue);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fcwsBuffer(new LYJ_VK::VKBufferCompute());
+	fcwsBuffer->upload(fBufferSize, (void *)fCenters[0].data(), queue);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fnsBuffer(new LYJ_VK::VKBufferCompute());
+	fnsBuffer->upload(fBufferSize, (void *)fNormals[0].data(), queue);
+	// cache
+	std::shared_ptr<LYJ_VK::VKBufferCompute> TBuffer(new LYJ_VK::VKBufferCompute());
+	TBuffer->upload(12 * sizeof(float), T.data(), queue);
+	std::shared_ptr<LYJ_VK::VKBufferUniform> ubo(new LYJ_VK::VKBufferUniform());
+	ubo->upload(sizeof(UBO), &uboCPU, queue, fence.ptr());
+	fence.wait();
+	fence.reset();
+	std::shared_ptr<LYJ_VK::VKBufferCompute> PcsBuffer(new LYJ_VK::VKBufferCompute());
+	PcsBuffer->resize(PBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> uvPsBuffer(new LYJ_VK::VKBufferCompute());
+	uvPsBuffer->resize(PBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fccsBuffer(new LYJ_VK::VKBufferCompute());
+	fccsBuffer->resize(fBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> uvfcsBuffer(new LYJ_VK::VKBufferCompute());
+	uvfcsBuffer->resize(fBufferSize);
+	// out
+	const VkDeviceSize fIdsBufferSize = w * h * sizeof(uint);
+	const VkDeviceSize depthsBufferSize = w * h * sizeof(float);
+	const VkDeviceSize PValidsBufferSize = vn * sizeof(uint);
+	const VkDeviceSize fValidsBufferSize = fn * sizeof(uint);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fIdsBuffer(new LYJ_VK::VKBufferCompute());
+	fIdsBuffer->resize(fIdsBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> depthsBuffer(new LYJ_VK::VKBufferCompute());
+	depthsBuffer->resize(depthsBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> PValidsBuffer(new LYJ_VK::VKBufferCompute());
+	PValidsBuffer->resize(PValidsBufferSize);
+	std::shared_ptr<LYJ_VK::VKBufferCompute> fValidsBuffer(new LYJ_VK::VKBufferCompute());
+	fValidsBuffer->resize(fValidsBufferSize);
+
+	// shader
+	std::shared_ptr<LYJ_VK::VKPipelineCompute> com(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/transform.comp.spv"));
+	com->setBufferBinding(0, ubo.get());
+	com->setBufferBinding(1, PwsBuffer.get());
+	com->setBufferBinding(2, PcsBuffer.get());
+	com->setBufferBinding(3, TBuffer.get());
+	com->setRunKernel(kernel, 1, 1, kernel, 1, 1);
+	VK_CHECK_RESULT(com->build());
+	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrier(
+		{PwsBuffer->getBuffer()},
+		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	LYJ_VK::VKCommandMemoryBarrier endBarrier;
+	std::shared_ptr<LYJ_VK::VKImp> imp(new LYJ_VK::VKImp(0));
+	imp->setCmds({&cmdBufferBarrier, com.get(), &endBarrier});
+
+	// run
+	imp->run(queue, fence.ptr());
+	fence.wait();
+	fence.reset();
+
+	// data download
+	float *retPtr = (float *)PcsBuffer->download(PBufferSize, queue);
+	float *retPtr2 = (float *)PwsBuffer->download(PBufferSize, queue, fence.ptr());
+	fence.wait();
+	fence.reset();
+	std::vector<Eigen::Vector3f> Pcs(vn);
+	std::vector<float> ppp(Pcs.size() * 3);
+	Pcs.resize(vn);
+	memcpy(Pcs[0].data(), retPtr, PBufferSize);
+	memcpy(ppp.data(), retPtr, PBufferSize);
+	PwsBuffer->releaseBufferCopy();
+	PcsBuffer->releaseBufferCopy();
+
+	// free
+	PwsBuffer->destroy();
+	PcsBuffer->destroy();
+	TBuffer->destroy();
+	ubo->destroy();
+	imp->destroy();
+	com->destroy();
+
+	SLAM_LYJ::BaseTriMesh btmC = btmVulkan;
+	btmC.disableVColors();
+	btmC.disableVNormals();
+	btmC.disableFCenters();
+	btmC.setVertexs(Pcs);
+	SLAM_LYJ::writePLYMesh("D:/tmp/meshC.ply", btmC);
+}
+
 int main()
 {
-	//testVulkanCompute();
+	// testVulkanCompute();
 	testVulkanGraphic();
 }
