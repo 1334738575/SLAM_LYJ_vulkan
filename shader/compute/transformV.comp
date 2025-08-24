@@ -3,7 +3,8 @@ layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout (binding = 0) uniform UBO
 {
-    uint size;
+    uint vSize;
+    uint fSize;
     // mat3 R;
     // vec3 t;
     // // vec4 K;
@@ -11,7 +12,8 @@ layout (binding = 0) uniform UBO
     float fy;
     float cx;
     float cy;
-    uint s;
+    uint vStep;
+    uint fStep;
     uint w;
     uint h;
 }ubo;
@@ -32,11 +34,11 @@ void main()
     // uvds[ind*3+1] = ubo.h; 
     // uvds[ind*3+2] = ubo.h; 
 
-    if(ind >= ubo.size)
+    if(ind >= ubo.vSize)
         return;
-    for(uint i=ind*ubo.s;i<(ind+1)*ubo.s;++i)
+    for(uint i=ind*ubo.vStep;i<(ind+1)*ubo.vStep;++i)
     {
-        if(i >= ubo.size)
+        if(i >= ubo.vSize)
             return;
         // uvds[i*3+0] = Pws[i*3+0]; 
         // uvds[i*3+1] = Pws[i*3+1]; 

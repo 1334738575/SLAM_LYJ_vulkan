@@ -1,0 +1,40 @@
+#version 450
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0) uniform UBO
+{
+    uint vSize;
+    uint fSize;
+    // mat3 R;
+    // vec3 t;
+    // // vec4 K;
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+    uint vStep;
+    uint fStep;
+    uint w;
+    uint h;
+}ubo;
+layout(binding = 1) buffer Data{
+    float Pcs[];
+};
+layout(binding = 2) buffer Data2{
+    float uvds[];
+};
+
+void main()
+{
+    uint ind = gl_GlobalInvocationID.x;
+    if(ind >= ubo.vSize)
+        return;
+    for(uint i=ind*ubo.vStep;i<(ind+1)*ubo.vStep;++i)
+    {
+        if(i >= ubo.vSize)
+            return;
+        uvds[i*3 + 0] = Pcs[i * 3 + 0] / Pcs[i * 3 + 2] * ubo.fx + ubo.cx;
+        uvds[i*3 + 1] = Pcs[i * 3 + 1] / Pcs[i * 3 + 2] * ubo.fy + ubo.cy;
+        uvds[i*3 + 2] = Pcs[i * 3 + 2];
+    }
+}

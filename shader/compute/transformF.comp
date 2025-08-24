@@ -1,0 +1,55 @@
+#version 450
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0) uniform UBO
+{
+    uint vSize;
+    uint fSize;
+    // mat3 R;
+    // vec3 t;
+    // // vec4 K;
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+    uint vStep;
+    uint fStep;
+    uint w;
+    uint h;
+}ubo;
+layout(binding = 1) buffer Data{
+    float Pws[];
+};
+layout(binding = 2) buffer Data2{
+    float Pcs[];
+};
+layout(binding = 3) buffer Data3{
+    float T[];
+};
+
+void main()
+{
+    uint ind = gl_GlobalInvocationID.x;
+    // uvds[ind*3+0] = ubo.w; 
+    // uvds[ind*3+1] = ubo.h; 
+    // uvds[ind*3+2] = ubo.h; 
+
+    if(ind >= ubo.fSize)
+        return;
+    for(uint i=ind*ubo.fStep;i<(ind+1)*ubo.fStep;++i)
+    {
+        if(i >= ubo.fSize)
+            return;
+        // uvds[i*3+0] = Pws[i*3+0]; 
+        // uvds[i*3+1] = Pws[i*3+1]; 
+        // uvds[i*3+2] = Pws[i*3+2]; 
+        // uvds[i] = ubo.R * Pws[i] + ubo.t; 
+        // uvds[i][0] /= uvds[i][2];
+        // uvds[i][1] /= uvds[i][2];
+        // uvds[i][0] = uvds[i][0] * ubo.K[0] + ubo.K[2];
+        // uvds[i][1] = uvds[i][1] * ubo.K[1] + ubo.K[3];
+        Pcs[i*3+0] = T[0] * Pws[i*3+0] + T[3] * Pws[i*3+1] + T[6] * Pws[i*3+2] + T[9];
+        Pcs[i*3+1] = T[1] * Pws[i*3+0] + T[4] * Pws[i*3+1] + T[7] * Pws[i*3+2] + T[10];
+        Pcs[i*3+2] = T[2] * Pws[i*3+0] + T[5] * Pws[i*3+1] + T[8] * Pws[i*3+2] + T[11];
+    }
+}
