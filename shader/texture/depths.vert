@@ -20,5 +20,7 @@ void main()
 	gl_Position.x = (uvds.x - ubo.halfW) / ubo.halfW;
 	gl_Position.y = (uvds.y - ubo.halfH) / ubo.halfH;
 	gl_Position.z = uvds.z / ubo.maxD;
+	if(gl_Position.z < 0.01)
+        gl_Position.z = -0.1f;
 	gl_Position.w = 1.0f;
 }
