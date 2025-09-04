@@ -1,9 +1,8 @@
 #include "VulkanPipeline.h"
 
-
 NSP_VULKAN_LYJ_BEGIN
 
-VKPipelineAbr::VKPipelineAbr(int _cnt):m_cnt(_cnt)
+VKPipelineAbr::VKPipelineAbr(int _cnt) : m_cnt(_cnt)
 {
 	m_device = GetLYJVKInstance()->m_device;
 	m_descriptorSets.resize(m_cnt);
@@ -13,9 +12,9 @@ VKPipelineAbr::VKPipelineAbr(int _cnt):m_cnt(_cnt)
 }
 VKPipelineAbr::~VKPipelineAbr()
 {
-	//destroy();
+	// destroy();
 }
-bool VKPipelineAbr::setBufferBinding(const int _binding, VKBufferAbr* _buffer, int _cnti)
+bool VKPipelineAbr::setBufferBinding(const int _binding, VKBufferAbr *_buffer, int _cnti)
 {
 	if (m_cnt <= 0 || _cnti >= m_cnt)
 		return false;
@@ -52,21 +51,26 @@ VkResult VKPipelineAbr::createVKDescriptorPool()
 {
 	int descCnt = m_buffers[0].size();
 	std::vector<VkDescriptorPoolSize> descriptorTypeCounts(descCnt);
-	for (int cnt = 0; cnt < descCnt; ++cnt) {
-		const auto& bfType = m_buffers[0][cnt]->getType();
-		if (bfType == VKBufferAbr::BUFFERTYPE::UNIFORM) {
+	for (int cnt = 0; cnt < descCnt; ++cnt)
+	{
+		const auto &bfType = m_buffers[0][cnt]->getType();
+		if (bfType == VKBufferAbr::BUFFERTYPE::UNIFORM)
+		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER)
+		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR)
+		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE)
+		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
@@ -83,28 +87,34 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 {
 	int descCnt = m_buffers[0].size();
 	m_layoutBindings[0].resize(descCnt);
-	for (int cnt = 0; cnt < descCnt; ++cnt) {
-		const auto& bfType = m_buffers[0][cnt]->getType();
+	for (int cnt = 0; cnt < descCnt; ++cnt)
+	{
+		const auto &bfType = m_buffers[0][cnt]->getType();
 		m_layoutBindings[0][cnt].descriptorCount = 1;
 		m_layoutBindings[0][cnt].pImmutableSamplers = nullptr;
 		m_layoutBindings[0][cnt].binding = m_locations[0][cnt];
-		if (bfType == VKBufferAbr::BUFFERTYPE::UNIFORM) {
+		if (bfType == VKBufferAbr::BUFFERTYPE::UNIFORM)
+		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER)
+		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR)
+		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
-		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE) {
+		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE)
+		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 		}
-		else {
+		else
+		{
 			return VkResult::VK_ERROR_UNKNOWN;
 		}
 	}
@@ -117,7 +127,7 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 }
 VkResult VKPipelineAbr::createVKPipelineLayout()
 {
-	std::vector<VkDescriptorSetLayout> layouts = { m_descriptorSetLayout };
+	std::vector<VkDescriptorSetLayout> layouts = {m_descriptorSetLayout};
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.pSetLayouts = layouts.data();
@@ -126,7 +136,8 @@ VkResult VKPipelineAbr::createVKPipelineLayout()
 }
 void VKPipelineAbr::createVKDescriptorSets()
 {
-	for (int di = 0; di < m_cnt; ++di) {
+	for (int di = 0; di < m_cnt; ++di)
+	{
 		VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
 		descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		descriptorSetAllocateInfo.descriptorPool = m_descriptorPool;
@@ -134,8 +145,9 @@ void VKPipelineAbr::createVKDescriptorSets()
 		descriptorSetAllocateInfo.pSetLayouts = &m_descriptorSetLayout;
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(m_device, &descriptorSetAllocateInfo, &m_descriptorSets[di]));
 		int descCnt = m_buffers[di].size();
-		std::vector< VkWriteDescriptorSet> writeDescriptorSets(descCnt);
-		for (int i = 0; i < descCnt; ++i) {
+		std::vector<VkWriteDescriptorSet> writeDescriptorSets(descCnt);
+		for (int i = 0; i < descCnt; ++i)
+		{
 			writeDescriptorSets[i] = VkWriteDescriptorSet{};
 			writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			writeDescriptorSets[i].descriptorCount = 1;
@@ -159,17 +171,15 @@ VkResult VKPipelineAbr::createVKPipelineCahce()
 	return vkCreatePipelineCache(m_device, &pipelineCacheCreateInfo, nullptr, &m_pipelineCache);
 }
 
-
-
-
-VKPipelineCompute::VKPipelineCompute(const std::string& _path) : VKPipelineAbr(1), m_path(_path)
+VKPipelineCompute::VKPipelineCompute(const std::string &_path) : VKPipelineAbr(1), m_path(_path)
 {
 	m_type = CMDTYPE::COMPUTE;
 }
 VKPipelineCompute::~VKPipelineCompute()
-{}
+{
+}
 void VKPipelineCompute::setRunKernel(uint32_t _lenx, uint32_t _leny, uint32_t _lenz,
-	uint32_t _localx, uint32_t _localy, uint32_t _localz)
+									 uint32_t _localx, uint32_t _localy, uint32_t _localz)
 {
 	m_blockx = (_lenx + _localx - 1) / _localx;
 	m_blocky = (_leny + _localy - 1) / _localy;
@@ -201,13 +211,12 @@ VkResult VKPipelineCompute::createPipeline()
 	return ret;
 }
 
-
-
-
 ClassResolver::ClassResolver()
-{}
+{
+}
 ClassResolver::~ClassResolver()
-{}
+{
+}
 void ClassResolver::addBindingDescriptor(uint32_t _binding, uint32_t _stride, VkVertexInputRate _inputRate)
 {
 	VkVertexInputBindingDescription vertexInputBinding{};
@@ -232,8 +241,9 @@ VKFrameBuffer::VKFrameBuffer(uint32_t _width, uint32_t _height)
 	m_device = GetLYJVKInstance()->m_device;
 }
 VKFrameBuffer::~VKFrameBuffer()
-{}
-VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView>& _imageViews)
+{
+}
+VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView> &_imageViews)
 {
 	VkFramebufferCreateInfo framebufferInfo{};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -248,11 +258,11 @@ VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView
 }
 void VKFrameBuffer::destroy()
 {
-	if(m_frameBuffer)
+	if (m_frameBuffer)
 		vkDestroyFramebuffer(m_device, m_frameBuffer, nullptr);
 }
 
-VKPipelineGraphics::VKPipelineGraphics(const std::string& _vertShaderPath, const std::string& _fragShaderPath, uint32_t _imageCnt)
+VKPipelineGraphics::VKPipelineGraphics(const std::string &_vertShaderPath, const std::string &_fragShaderPath, uint32_t _imageCnt)
 	: VKPipelineAbr(_imageCnt), m_vertShaderPath(_vertShaderPath), m_fragShaderPath(_fragShaderPath)
 {
 	m_type = CMDTYPE::GRAPHICS;
@@ -260,26 +270,27 @@ VKPipelineGraphics::VKPipelineGraphics(const std::string& _vertShaderPath, const
 	m_framebuffers.resize(_imageCnt);
 }
 inline VKPipelineGraphics::~VKPipelineGraphics()
-{}
-void VKPipelineGraphics::setVertexBuffer(VKBufferVertex * _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver)
+{
+}
+void VKPipelineGraphics::setVertexBuffer(VKBufferVertex *_vertexBuffer, uint32_t _verCnt, ClassResolver &_classResolver)
 {
 	m_vertexBuffer = _vertexBuffer;
 	m_vertexCount = _verCnt;
 	m_classResolver = _classResolver;
 }
-void VKPipelineGraphics::setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt)
+void VKPipelineGraphics::setIndexBuffer(VKBufferIndex *_indexBuffer, uint32_t _indexCnt)
 {
 	m_indexBuffer = _indexBuffer;
 	m_indexCount = _indexCnt;
 }
-void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image)
+void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage> &_image)
 {
 	m_images[_cnti].push_back(_image);
 	m_attachLocations.push_back(_atti);
-	//if (_atti > 0)
+	// if (_atti > 0)
 	//	setBufferBinding(_atti, _image.get(), _cnti);
 }
-void VKPipelineGraphics::setDepthImage(std::shared_ptr<VKBufferImage>& _depthImage)
+void VKPipelineGraphics::setDepthImage(std::shared_ptr<VKBufferImage> &_depthImage)
 {
 	m_depthImage = _depthImage;
 }
@@ -309,7 +320,7 @@ VkResult VKPipelineGraphics::createPipeline()
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	fragShaderStageInfo.module = fragShaderModule;
 	fragShaderStageInfo.pName = "main";
-	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -329,17 +340,17 @@ VkResult VKPipelineGraphics::createPipeline()
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo{};
 	inputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;//VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+	inputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyStateCreateInfo;
 
-	VkPipelineTessellationStateCreateInfo tessellationStateCreateInfo{}; //图元细分阶段
+	VkPipelineTessellationStateCreateInfo tessellationStateCreateInfo{}; // 图元细分阶段
 	tessellationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 	pipelineCreateInfo.pTessellationState = &tessellationStateCreateInfo;
 
-	VkViewport vp{ 0.f, 0.f, float(m_extent.width), float(m_extent.height), 0.f, 1.f };
+	VkViewport vp{0.f, 0.f, float(m_extent.width), float(m_extent.height), 0.f, 1.f};
 	m_viewports.push_back(vp);
-	VkOffset2D of2d{ 0,0 };
-	VkRect2D sr{ of2d, m_extent };
+	VkOffset2D of2d{0, 0};
+	VkRect2D sr{of2d, m_extent};
 	m_scissors.push_back(sr);
 	VkPipelineViewportStateCreateInfo viewportStateCreateInfo{};
 	viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -368,7 +379,7 @@ VkResult VKPipelineGraphics::createPipeline()
 	m_clrBlend.colorWriteMask = 0b1111;
 	m_colorBlendAttachmentStates.clear();
 	int clrAttCnt = m_attachLocations.size() / m_framebuffers.size();
-	for(int i=0;i< clrAttCnt;++i)
+	for (int i = 0; i < clrAttCnt; ++i)
 		m_colorBlendAttachmentStates.push_back(m_clrBlend);
 	VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
 	colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -376,14 +387,14 @@ VkResult VKPipelineGraphics::createPipeline()
 	colorBlendStateCreateInfo.pAttachments = m_colorBlendAttachmentStates.data();
 	pipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
 
-	//m_dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
-	//m_dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	// m_dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	// m_dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
 	dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicStateCreateInfo.dynamicStateCount = (uint32_t)m_dynamicStates.size();
 	dynamicStateCreateInfo.pDynamicStates = m_dynamicStates.data();
 	pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
-	
+
 	VkResult ret = vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipelineCreateInfo, nullptr, &m_pipeline);
 	vkDestroyShaderModule(m_device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(m_device, vertShaderModule, nullptr);
@@ -398,9 +409,10 @@ VkResult VKPipelineGraphics::createRenderPass()
 	if (clrAttachSize == 0 && dpAttachSize == 0)
 		return VK_SUCCESS;
 
-	//附件所有子通道共享
+	// 附件所有子通道共享
 	std::vector<VkAttachmentDescription> attachments(clrAttachSize + dpAttachSize);
-	for (int i = 0; i < clrAttachSize; ++i) {
+	for (int i = 0; i < clrAttachSize; ++i)
+	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = m_images[0][i]->getFormat();
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -413,7 +425,8 @@ VkResult VKPipelineGraphics::createRenderPass()
 		attachments[i] = colorAttachment;
 	}
 	VkAttachmentDescription dpAttachment{};
-	if (dpAttachSize) {
+	if (dpAttachSize)
+	{
 		dpAttachment.format = m_depthImage->getFormat();
 		dpAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		dpAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -422,13 +435,14 @@ VkResult VKPipelineGraphics::createRenderPass()
 		dpAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		dpAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		dpAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		//dpAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+		// dpAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 		attachments[clrAttachSize] = dpAttachment;
 	}
 
-	//附件引用
+	// 附件引用
 	std::vector<VkAttachmentReference> clrAttachmentRefs(clrAttachSize);
-	for (int i = 0; i < clrAttachSize; ++i) {
+	for (int i = 0; i < clrAttachSize; ++i)
+	{
 		VkAttachmentReference attachmentRef{};
 		attachmentRef.attachment = i;
 		attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -437,9 +451,9 @@ VkResult VKPipelineGraphics::createRenderPass()
 	VkAttachmentReference dpAttachmentRef{};
 	dpAttachmentRef.attachment = clrAttachSize;
 	dpAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	//dpAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	// dpAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
-	//子通道
+	// 子通道
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = clrAttachmentRefs.size();
@@ -447,20 +461,22 @@ VkResult VKPipelineGraphics::createRenderPass()
 	if (dpAttachSize)
 		subpass.pDepthStencilAttachment = &dpAttachmentRef;
 
-	//子通道之间的依赖
-	//VkSubpassDependency dependency{};
-	//dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	//dependency.dstSubpass = 0;
-	//dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	//dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	//dependency.srcAccessMask = 0;
-	//dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// 子通道之间的依赖
+	// VkSubpassDependency dependency{};
+	// dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	// dependency.dstSubpass = 0;
+	// dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependency.srcAccessMask = 0;
+	// dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	std::array<VkSubpassDependency, 2> dependencies;
 	// This makes sure that writes to the depth image are done before we try to write to it again
 	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependencies[0].dstSubpass = 0;
-	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
-	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	;
 	dependencies[0].srcAccessMask = 0;
 	dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 	dependencies[0].dependencyFlags = 0;
@@ -487,7 +503,8 @@ VkResult VKPipelineGraphics::createFrameBuffers()
 {
 	m_extent.width = m_images[0][0]->getWidth();
 	m_extent.height = m_images[0][0]->getHeight();
-	for (size_t i = 0; i < m_cnt; ++i) {
+	for (size_t i = 0; i < m_cnt; ++i)
+	{
 		int imgSize = m_images[i].size();
 		m_framebuffers[i].reset(new LYJ_VK::VKFrameBuffer(m_images[i][0]->getWidth(), m_images[i][0]->getHeight()));
 		std::vector<VkImageView> attachments(imgSize);
@@ -517,22 +534,25 @@ void VKPipelineGraphics::destroy()
 	if (m_renderPass)
 		vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 	for (auto framebuffer : m_framebuffers)
-		if(framebuffer)
+		if (framebuffer)
 			framebuffer->destroy();
 }
 void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 {
 	uint32_t attCnt = m_framebuffers.at(m_curId)->getAttachmentCount();
 	m_clearColors.resize(attCnt);
-	for (uint32_t i = 0; i < attCnt; ++i) {
-		if (m_depthImage && i == (attCnt - 1)) {
+	for (uint32_t i = 0; i < attCnt; ++i)
+	{
+		if (m_depthImage && i == (attCnt - 1))
+		{
 			m_clearColors[i] = VkClearValue{};
-			//取决于depthStencilStateCreateInfo深度比较方式，保留小值时，只能使用1.0f，反之只能使用0.0f
-			m_clearColors[i].depthStencil = { 1.0f, 0 };
+			// 取决于depthStencilStateCreateInfo深度比较方式，保留小值时，只能使用1.0f，反之只能使用0.0f
+			m_clearColors[i].depthStencil = {1.0f, 0};
 		}
-		else {
+		else
+		{
 			m_clearColors[i] = VkClearValue{};
-			m_clearColors[i].color = { 0.f, 0.f, 0.f, 1.f };
+			m_clearColors[i].color = {0.f, 0.f, 0.f, 0.f};
 		}
 	}
 	VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -549,17 +569,13 @@ void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 
 	vkCmdBindDescriptorSets(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[m_curId], 0, nullptr);
 	vkCmdBindPipeline(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-	//vkCmdDraw(m_cmdBuffer, 3, 1, 0, 0);
-	VkDeviceSize offsets[1] = { 0 };
+	// vkCmdDraw(m_cmdBuffer, 3, 1, 0, 0);
+	VkDeviceSize offsets[1] = {0};
 	vkCmdBindVertexBuffers(_cmdBuffer, 0, 1, &m_vertexBuffer->getBuffer(), offsets);
 	vkCmdBindIndexBuffer(_cmdBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(_cmdBuffer, m_indexCount, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(_cmdBuffer);
-
-
 }
-
-
 
 NSP_VULKAN_LYJ_END

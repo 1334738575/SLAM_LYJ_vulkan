@@ -5,8 +5,8 @@ layout (location = 0) in vec3 uvds;
 
 layout (binding = 0) uniform UBO 
 {
-    uint halfW;
-    uint halfH;
+    float halfW;
+    float halfH;
     float maxD;
 } ubo;
 

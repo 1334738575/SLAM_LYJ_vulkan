@@ -3,7 +3,8 @@ layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout (binding = 0) uniform UBO
 {
-    uint size;
+    uint vSize;
+    uint fSize;
     // mat3 R;
     // vec3 t;
     // // vec4 K;
@@ -11,7 +12,8 @@ layout (binding = 0) uniform UBO
     float fy;
     float cx;
     float cy;
-    uint s;
+    uint vStep;
+    uint fStep;
     uint w;
     uint h;
 }ubo;
@@ -29,14 +31,14 @@ void main()
 {
     uint ind = gl_GlobalInvocationID.x;
 
-    if(ind >= ubo.size)
+    if(ind >= ubo.fSize)
         return;
-    for(uint i=ind*ubo.s;i<(ind+1)*ubo.s;++i)
+    for(uint i=ind*ubo.fStep;i<(ind+1)*ubo.fStep;++i)
     {
-        if(i >= ubo.size)
+        if(i >= ubo.fSize)
             return;
-        ncs[i*3+0] = T[0] * ncs[i*3+0] + T[3] * ncs[i*3+1] + T[6] * ncs[i*3+2];
-        ncs[i*3+1] = T[1] * ncs[i*3+0] + T[4] * ncs[i*3+1] + T[7] * ncs[i*3+2];
-        ncs[i*3+2] = T[2] * ncs[i*3+0] + T[5] * ncs[i*3+1] + T[8] * ncs[i*3+2];
+        ncs[i*3+0] = T[0] * nws[i*3+0] + T[3] * nws[i*3+1] + T[6] * nws[i*3+2];
+        ncs[i*3+1] = T[1] * nws[i*3+0] + T[4] * nws[i*3+1] + T[7] * nws[i*3+2];
+        ncs[i*3+2] = T[2] * nws[i*3+0] + T[5] * nws[i*3+1] + T[8] * nws[i*3+2];
     }
 }
