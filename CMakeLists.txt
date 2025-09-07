@@ -101,13 +101,13 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 #dependencies headers and libraries
 target_include_directories(${PROJECT_NAME} 
-    PUBLIC ${VULKAN_INCLUDE_DIRS}
-    PUBLIC ${GLFW_INCLUDE_DIRS}
-    PUBLIC ${GLM_INCLUDE_DIRS}
+    PRIVATE ${VULKAN_INCLUDE_DIRS}
+    PRIVATE ${GLFW_INCLUDE_DIRS}
+    PRIVATE ${GLM_INCLUDE_DIRS}
 )
         
 # target_link_libraries(${PROJECT_NAME} ${VULKAN_LIBRARIES} glm::glm ${GLFW_LIBRARIES}  ${OpenCV_LIBS} )
-target_link_libraries(${PROJECT_NAME} PUBLIC ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE SLAM_LYJ_API_EXPORTS) # TODO
 
@@ -122,8 +122,8 @@ endif()
 
 # ################################example##################################
 add_executable(${PROJECT_NAME}Bin example/VulkanTest.cpp example/VulkanTest.h)
-target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${OpenCV_LIBS})
+target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${OpenCV_LIBS} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
 
 if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
     set_target_properties(${PROJECT_NAME}Bin PROPERTIES

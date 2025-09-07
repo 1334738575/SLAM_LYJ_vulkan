@@ -1,6 +1,7 @@
 #include "VulkanTest.h"
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
+#include <vulkan/vulkan.hpp>
 
 static std::string shaderPath = "D:/testLyj/Vulkan/shader/";
 static std::string imagePath = "D:/SLAM_LYJ/other/";
