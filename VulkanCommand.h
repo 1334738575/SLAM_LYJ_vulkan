@@ -163,6 +163,22 @@ private:
 };
 
 
+class VKCommandFiller : public VKCommandAbr
+{
+public:
+	VKCommandFiller(VkBuffer _buffer, VkDeviceSize _size, uint32_t _data = 0, VkDeviceSize _offset=0);
+	~VKCommandFiller();
+
+	// Í¨¹ý VKCommandAbr ¼Ì³Ð
+	void record(VkCommandBuffer _cmdBuffer) override;
+private:
+	VkBuffer m_buffer = VK_NULL_HANDLE;
+	VkDeviceSize m_offset = 0;
+	VkDeviceSize m_size = VK_WHOLE_SIZE;
+	uint32_t m_data = 0;
+};
+
+
 
 
 

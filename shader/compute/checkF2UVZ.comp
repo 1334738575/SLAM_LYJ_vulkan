@@ -16,6 +16,11 @@ layout (binding = 0) uniform UBO
     uint fStep;
     uint w;
     uint h;
+    float detd;
+    float maxD;
+    float minD;
+    float csTh;
+    uint dStep;
 }ubo;
 layout(binding = 1) buffer Data{
     float cuvds[];
@@ -36,7 +41,7 @@ layout(binding = 5) buffer Data5{
 void main()
 {
     uint ind = gl_GlobalInvocationID.x;
-    if(ind >= ubo.fSize)
+    if(ind*ubo.fStep >= ubo.fSize)
         return;
     float u;
     float v;
@@ -46,18 +51,18 @@ void main()
     {
         if(i >= ubo.fSize)
             return;
-        u = cuvds[i*3 + 0];
-        v = cuvds[i*3 + 1];
-        if(u >= ubo.w || u < 0 || v >= ubo.h || v > 0)
-            continue;
-        if(cuvds[i*3 + 2] <= 0)
-            continue;
-        ui = uint(u);
-        vi = uint(v);
-        if(depths[vi * ubo.w + vi] == 3.402823466e+38F)
-            continue;
-        if(depths[vi * ubo.w + vi] > (cuvds[i*3 + 2] - 1) || depths[vi * ubo.w + vi] < (cuvds[i*3 + 2] + 1))
-            continue;
+        // u = cuvds[i*3 + 0];
+        // v = cuvds[i*3 + 1];
+        // if(u >= ubo.w || u < 0 || v >= ubo.h || v < 0)
+        //     continue;
+        // if(cuvds[i*3 + 2] <= 0)
+        //     continue;
+        // ui = uint(u);
+        // vi = uint(v);
+        // if(depths[vi * ubo.w + vi] == 3.402823466e+38)
+        //     continue;
+        // if(depths[vi * ubo.w + vi] > (cuvds[i*3 + 2] - 1) || depths[vi * ubo.w + vi] < (cuvds[i*3 + 2] + 1))
+        //     continue;
         if(pValids[faces[3 * i + 0]] == 1 || pValids[faces[3 * i + 1]] == 1 || pValids[faces[3 * i + 2]] == 1)
             fValids[i] = 1;
     }

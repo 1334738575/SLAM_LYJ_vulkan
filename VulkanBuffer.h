@@ -28,6 +28,7 @@ public:
 	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence=nullptr)=0;
 	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
 	virtual void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
+	virtual void resetData(VkDeviceSize _size=0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
 	virtual void releaseBufferCopy()=0;
 	virtual void destroy(bool _bf=true, bool _mem=true)=0;
 	VkBuffer& getBuffer() { return m_buffer; };
@@ -78,6 +79,7 @@ public:
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override {};
 	void destroy(bool _bf = true, bool _mem = true) override;
 private:
@@ -102,6 +104,7 @@ public:
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override;
 	void destroy(bool _bf = true, bool _mem = true) override;
 private:
@@ -182,6 +185,7 @@ public:
 	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override;
 	void destroy(bool _bf = true, bool _mem = true) override;
 protected:

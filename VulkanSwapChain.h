@@ -1,4 +1,5 @@
 #ifndef VULKAN_SWAPCHAIN_H
+#define VULKAN_SWAPCHAIN_H
 
 #include "VulkanCommon.h"
 #include "VulkanBuffer.h"

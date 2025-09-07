@@ -301,5 +301,18 @@ void VKCommandTransfer::record(VkCommandBuffer _cmdBuffer)
 }
 
 
+
+
+VKCommandFiller::VKCommandFiller(VkBuffer _buffer, VkDeviceSize _size, uint32_t _data, VkDeviceSize _offset)
+	:m_buffer(_buffer), m_size(_size), m_data(_data), m_offset(_offset)
+{}
+VKCommandFiller::~VKCommandFiller()
+{}
+void VKCommandFiller::record(VkCommandBuffer _cmdBuffer)
+{
+    // 使用填充命令（支持任意对齐）
+    vkCmdFillBuffer(_cmdBuffer, m_buffer, m_offset, m_size, m_data);
+}
+
 NSP_VULKAN_LYJ_END
 

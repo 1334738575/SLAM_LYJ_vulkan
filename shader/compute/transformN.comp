@@ -16,6 +16,11 @@ layout (binding = 0) uniform UBO
     uint fStep;
     uint w;
     uint h;
+    float detd;
+    float maxD;
+    float minD;
+    float csTh;
+    uint dStep;
 }ubo;
 layout(binding = 1) buffer Data{
     float nws[];
@@ -31,7 +36,7 @@ void main()
 {
     uint ind = gl_GlobalInvocationID.x;
 
-    if(ind >= ubo.fSize)
+    if(ind*ubo.fStep >= ubo.fSize)
         return;
     for(uint i=ind*ubo.fStep;i<(ind+1)*ubo.fStep;++i)
     {

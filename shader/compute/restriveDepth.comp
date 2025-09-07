@@ -23,23 +23,25 @@ layout (binding = 0) uniform UBO
     uint dStep;
 }ubo;
 layout(binding = 1) buffer Data{
-    float Pcs[];
-};
-layout(binding = 2) buffer Data2{
-    float uvds[];
+    float depths[];
 };
 
 void main()
 {
     uint ind = gl_GlobalInvocationID.x;
-    if(ind*ubo.fStep >= ubo.fSize)
+    // gl_LocalInvocationID
+    // gl_WorkGroupSize
+
+    uint sss = ubo.w * ubo.h;
+    if(ind * ubo.dStep >= sss)
         return;
-    for(uint i=ind*ubo.fStep;i<(ind+1)*ubo.fStep;++i)
+    for(uint i=ind*ubo.dStep;i<(ind+1)*ubo.dStep;++i)
     {
-        if(i >= ubo.fSize)
+        if(i >= sss)
             return;
-        uvds[i*3 + 0] = Pcs[i * 3 + 0] / Pcs[i * 3 + 2] * ubo.fx + ubo.cx;
-        uvds[i*3 + 1] = Pcs[i * 3 + 1] / Pcs[i * 3 + 2] * ubo.fy + ubo.cy;
-        uvds[i*3 + 2] = Pcs[i * 3 + 2];
+        if(depths[i] == 0.0 || depths[i] == 1.0)
+            depths[i] = 3.402823466e+38;
+        else
+            depths[i] = depths[i] * ubo.maxD;
     }
 }
