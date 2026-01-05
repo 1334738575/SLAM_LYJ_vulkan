@@ -26,6 +26,8 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
             return false;
         }
     }
+    static std::string vulkanHomePath(VULKAN_LYJ_HOME_PATH);
+    static std::string shaderPath = vulkanHomePath + "/shader/";
 
 
     uboComCPU_.vSize = PSize;
@@ -115,7 +117,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
 
     // shader
     // transform point
-    comTransV.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/transformV.comp.spv"));
+    comTransV.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/transformV.comp.spv"));
     comTransV->setBufferBinding(0, uboCom.get());
     comTransV->setBufferBinding(1, PwsBuffer.get());
     comTransV->setBufferBinding(2, PcsBuffer.get());
@@ -134,7 +136,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impTransV.reset(new LYJ_VK::VKImp(0));
     impTransV->setCmds({ cmdBarrierTransV.get(), comTransV.get(), endBarrier.get()});
     // project point
-    comProV.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/projectV2UV.comp.spv"));
+    comProV.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/projectV2UV.comp.spv"));
     comProV->setBufferBinding(0, uboCom.get());
     comProV->setBufferBinding(1, PcsBuffer.get());
     comProV->setBufferBinding(2, uvPsBuffer.get());
@@ -149,7 +151,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impProV.reset(new LYJ_VK::VKImp(0));
     impProV->setCmds({ cmdBarrierProV.get(), comProV.get(), endBarrier.get()});
     // transform face
-    comTransF.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/transformF.comp.spv"));
+    comTransF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/transformF.comp.spv"));
     comTransF->setBufferBinding(0, uboCom.get());
     comTransF->setBufferBinding(1, fcwsBuffer.get());
     comTransF->setBufferBinding(2, fccsBuffer.get());
@@ -166,7 +168,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impTransF.reset(new LYJ_VK::VKImp(0));
     impTransF->setCmds({ cmdBarrierTransF.get(), comTransF.get(), endBarrier.get()});
     // project face
-    comProF.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/projectF2UV.comp.spv"));
+    comProF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/projectF2UV.comp.spv"));
     comProF->setBufferBinding(0, uboCom.get());
     comProF->setBufferBinding(1, fccsBuffer.get());
     comProF->setBufferBinding(2, uvfcsBuffer.get());
@@ -182,7 +184,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impProF.reset(new LYJ_VK::VKImp(0));
     impProF->setCmds({ cmdBarrierProF.get(), comProF.get(), endBarrier.get()});
     // transform normal
-    comTransN.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/transformN.comp.spv"));
+    comTransN.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/transformN.comp.spv"));
     comTransN->setBufferBinding(0, uboCom.get());
     comTransN->setBufferBinding(1, fnsBuffer.get());
     comTransN->setBufferBinding(2, fncsBuffer.get());
@@ -218,7 +220,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impTransUVZ->setCmds({ cmdTransUVZSrc.get(), cmdTransferUVZ.get(), cmdTransUVZDst.get()});
 
     // render depth
-    graphDepth.reset(new LYJ_VK::VKPipelineGraphics("D:/testCmake/pro6/shader/texture/depths.vert.spv", "D:/testCmake/pro6/shader/texture/depths.frag.spv", 1));
+    graphDepth.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "/texture/depths.vert.spv", shaderPath + "/texture/depths.frag.spv", 1));
     graphDepth->setBufferBinding(0, uboGraph.get());
     graphDepth->setVertexBuffer(verBuffer.get(), PSize, classResolver);
     graphDepth->setIndexBuffer(indBuffer.get(), fSize * 3);
@@ -268,7 +270,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impTransDepth->setCmds({ cmdTransDepthSrc.get(), cmdTransferDepth.get(), cmdTransDepthDst.get(), cmdTransDepthDst2.get()});
 
     // restrive depth
-    comRestriveDepth.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/restriveDepth.comp.spv"));
+    comRestriveDepth.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/restriveDepth.comp.spv"));
     comRestriveDepth->setBufferBinding(0, uboCom.get());
     comRestriveDepth->setBufferBinding(1, depthsBuffer.get());
     comRestriveDepth->setRunKernel(kernel_, 1, 1, kernel_, 1, 1);
@@ -284,7 +286,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impRestriveDepth->setCmds({ cmdBarrierRestriveDepth.get(), comRestriveDepth.get(), endBarrier.get()});
 
     // check point
-    comCheckV.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/checkV2UVZ.comp.spv"));
+    comCheckV.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkV2UVZ.comp.spv"));
     comCheckV->setBufferBinding(0, uboCom.get());
     comCheckV->setBufferBinding(1, uvPsBuffer.get());
     comCheckV->setBufferBinding(2, depthsBuffer.get());
@@ -301,7 +303,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     impCheckV.reset(new LYJ_VK::VKImp(0));
     impCheckV->setCmds({ cmdBarrierCheckV.get(), comCheckV.get(), endBarrier.get()});
     // check face
-    comCheckF.reset(new LYJ_VK::VKPipelineCompute("D:/testCmake/pro6/shader/compute/checkF2UVZ.comp.spv"));
+    comCheckF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkF2UVZ.comp.spv"));
     comCheckF->setBufferBinding(0, uboCom.get());
     comCheckF->setBufferBinding(1, uvfcsBuffer.get());
     comCheckF->setBufferBinding(2, depthsBuffer.get());

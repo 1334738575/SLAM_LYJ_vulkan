@@ -6,6 +6,34 @@
 
 NSP_VULKAN_LYJ_BEGIN
 
+//class ProjectorCacheVK
+//{
+//public:
+//    ProjectorCacheVK() {};
+//    ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
+//    ~ProjectorCacheVK();
+//
+//    unsigned int PSize_ = 0;
+//    unsigned int fSize_ = 0;
+//    int w_ = 0;
+//    int h_ = 0;
+//
+//    void init(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
+//private:
+//
+//};
+//ProjectorCacheVK::ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
+//    :PSize_(_PSize), fSize_(_fSize), w_(_w), h_(_h)
+//{
+//    init(PSize_, fSize_, w_, h_);
+//}
+//ProjectorCacheVK::~ProjectorCacheVK()
+//{
+//}
+//void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
+//{
+//}
+
 struct UBOProjectCompute
 {
     uint32_t vSize;

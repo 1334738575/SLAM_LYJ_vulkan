@@ -19,12 +19,15 @@ void VKBufferAbr::resize(VkDeviceSize _size)
 		return;
 	else
 	{
+		destroy(true, false);
 		m_size = (_size + 63) / 64 * 64;
 		if (createVkBuffer() != VK_SUCCESS)
 			return destroy();
-		if (m_size > m_capacity)
+		if (m_size > m_capacity) {
+			destroy(false, true);
 			if (createVkMemory() != VK_SUCCESS)
 				return destroy();
+		}
 	}
 	if (vkBindBufferMemory(m_device, m_buffer, m_memory, 0) != VK_SUCCESS)
 		return destroy();
@@ -32,7 +35,6 @@ void VKBufferAbr::resize(VkDeviceSize _size)
 }
 VkResult VKBufferAbr::createVkBuffer()
 {
-	destroy(true, false);
 	VkBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.usage = m_bufferUsageFlags;
@@ -112,7 +114,7 @@ void *VKBufferTrans::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 }
 void VKBufferTrans::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
-	if (_size)
+	if (_size <= 0)
 		return;
 	resize(_size);
 	mapGPU2CPU(_size, 0);
@@ -125,7 +127,7 @@ void VKBufferTrans::destroy(bool _bf, bool _mem)
 	if (m_buffer && _bf)
 	{
 		vkDestroyBuffer(m_device, m_buffer, nullptr);
-		// m_size = 0;
+		 m_size = 0;
 	}
 	if (m_memory && _mem)
 	{

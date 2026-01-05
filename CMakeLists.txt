@@ -19,6 +19,7 @@ endif()
 set(${PROJECT_NAME}_LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/Output)
 set(${PROJECT_NAME}_CMAKE_FILE)
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
+option(TEST_TEXTURE_VULKAN "test texture" OFF)
 
 #cmake
 if(DEFINED ${PROJECT_NAME}_CMAKE_FILE)
@@ -28,6 +29,19 @@ elseif(EXISTS ${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake)
 else()
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/FuncLyj.cmake)
 endif()
+
+#load config
+set(VULKAN_LYJ_HOME_PATH "${CMAKE_CURRENT_SOURCE_DIR}/")
+#或者直接写.h文件？
+file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/VulkanConfig.h.in
+    "#pragma once\n#define VULKAN_LYJ_HOME_PATH \"@VULKAN_LYJ_HOME_PATH@\""
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/VulkanConfig.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/VulkanConfig.h
+    @ONLY
+)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/config)
 
 set(${PROJECT_NAME}_BINARY_DIRS)
 #package
@@ -43,11 +57,36 @@ list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/testLyj/GLFW/glfw-3.4.bin.WIN64/lib-
 list(APPEND CMAKE_MODULE_PATH "D:/testLyj/GLM/glm-1.0.1")
 find_package(glm)
 # include_directories(${GLM_INCLUDE_DIRS})
-#OpenCV
-set(OpenCV_DIR "D:/SLAM_LYJ/dependencies/Opencv/lib")
-find_package(OpenCV)
-# include_directories(${OpenCV_INCLUDE_DIRS})
-list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${OpenCV_INSTALL_PATH}/bin;")
+
+if(TEST_TEXTURE_VULKAN)
+    set(libjpeg-turbo_DIR "D:/SLAM_LYJ/dependencies/libjpeg/lib/cmake/libjpeg-turbo")
+    find_package(libjpeg-turbo)
+    list(APPEND ${PROJECT_NAME}_LIBRARIES libjpeg-turbo::turbojpeg)
+    set(Eigen3_DIR "D:/SLAM_LYJ/dependencies/Eigen/share/eigen3/cmake")
+    find_package(Eigen3)
+    list(APPEND ${PROJECT_NAME}_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+    #OpenCV
+    set(OpenCV_DIR "D:/SLAM_LYJ/dependencies/Opencv/lib")
+    find_package(OpenCV)
+    # include_directories(${OpenCV_INCLUDE_DIRS})
+    list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${OpenCV_INSTALL_PATH}/bin;")
+    set(flann_DIR "D:/SLAM_LYJ/dependencies/flann/lib/cmake/flann")
+    find_package(flann)
+    list(APPEND ${PROJECT_NAME}_INCLUDE_DIRS "D:/SLAM_LYJ/dependencies/flann/include")
+    list(APPEND ${PROJECT_NAME}_LIBRARIES flann::flann)
+    list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/flann/bin\;")
+    list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/lz4/bin\;")
+    list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/libjpeg/bin\;")
+    if(TARGET COMMON_LYJ)
+        list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ)
+    else()
+        set(COMMON_LYJ_DIR "D:/SLAM_LYJ_Packages/SLAM_LYJ_COMMON/install/lib/cmake")
+        find_package(COMMON_LYJ)
+        list(APPEND ${PROJECT_NAME}_INCLUDE_DIRS ${COMMON_LYJ_DIR}/../../include)
+        list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ::COMMON_LYJ)
+        list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${COMMON_LYJ_DIR}/../../bin\;")
+    endif()
+endif()
 
 # vulkan shader compile
 macro(GenShader args)
@@ -122,8 +161,8 @@ endif()
 
 # ################################example##################################
 add_executable(${PROJECT_NAME}Bin example/VulkanTest.cpp example/VulkanTest.h)
-target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${OpenCV_LIBS} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
+target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${${PROJECT_NAME}_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${OpenCV_LIBS} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES} ${${PROJECT_NAME}_LIBRARIES})
 
 if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
     set_target_properties(${PROJECT_NAME}Bin PROPERTIES

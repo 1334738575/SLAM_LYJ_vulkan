@@ -1,0 +1,2 @@
+#pragma once
+#define VULKAN_LYJ_HOME_PATH "@VULKAN_LYJ_HOME_PATH@"

@@ -1,6 +1,7 @@
 #ifndef VULKAN_COMMON_H
 #define VULKAN_COMMON_H
 
+#include "VulkanConfig.h"
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 #include <optional>
