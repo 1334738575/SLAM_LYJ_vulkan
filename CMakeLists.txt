@@ -49,12 +49,12 @@ list(APPEND CMAKE_MODULE_PATH "E:/vulkan")
 find_package(Vulkan)
 # include_directories(${VULKAN_INCLUDE_DIRS})
 #glfw
-list(APPEND CMAKE_MODULE_PATH "D:/testLyj/GLFW/glfw-3.4.bin.WIN64")
+list(APPEND CMAKE_MODULE_PATH "D:/SLAM_LYJ/dependencies/Glfw")
 find_package(Glfw)
 # include_directories(${GLFW_INCLUDE_DIRS})
-list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/testLyj/GLFW/glfw-3.4.bin.WIN64/lib-vc2022;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/Glfw/Dll;")
 #glm
-list(APPEND CMAKE_MODULE_PATH "D:/testLyj/GLM/glm-1.0.1")
+set(glm_DIR "D:/SLAM_LYJ/dependencies/Glm099/glm/cmake/glm")
 find_package(glm)
 # include_directories(${GLM_INCLUDE_DIRS})
 

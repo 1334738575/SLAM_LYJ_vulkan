@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools",
+    "cmake.configureSettings": {
+        // "CMAKE_BUILD_TYPE": "Release",
+        // "ARCHIVE_OUTPUT_DIRECTORY": "./lib",
+        "USE_OLD_SHADER": "OFF"
+    }
+}

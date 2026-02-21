@@ -4,6 +4,7 @@
 #include <base/CameraModule.h>
 #include <IO/SimpleIO.h>
 #include <STLPlus/include/file_system.h>
+#include <common/Timer.h>
 
 
 #include "VulkanTest.h"
@@ -587,7 +588,10 @@ void testProject()
 		Eigen::Matrix<float, 3, 4> T2;
 		T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
 		T2.block(0, 3, 3, 1) = Tcw2.gett().cast<float>();
+		SLAM_LYJ::Timer q;
 		projectVK.project(T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
+		auto t = q.elapsed();
+		std::cout << "project cost: " << t << " ms" << std::endl;
 
 		//{
 		//	std::vector<Eigen::Vector3f> retPs;
