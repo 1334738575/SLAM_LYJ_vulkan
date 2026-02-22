@@ -536,12 +536,11 @@ void testVulkanCompute()
 }
 void testProject()
 {
-	using namespace SLAM_LYJ;
-	SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
-	SLAM_LYJ::readPLYMesh("D:/tmp/res_mesh.ply", btm);
+	COMMON_LYJ::BaseTriMesh btm;
+	COMMON_LYJ::readPLYMesh("D:/tmp/res_mesh.ply", btm);
 
 	// data
-	SLAM_LYJ::BaseTriMesh btmVulkan = btm;
+	COMMON_LYJ::BaseTriMesh btmVulkan = btm;
 	const auto& vertexs = btmVulkan.getVertexs();
 	const auto& faces = btmVulkan.getFaces();
 	btmVulkan.enableFCenters();
@@ -556,14 +555,14 @@ void testProject()
 	int h = 2048;
 	std::vector<float> K{ 765.955, 766.549, 1024, 1024 };
 	std::vector<double> Kd{ 765.955, 766.549, 1024, 1024 };
-	Pose3D TcwP;
+	COMMON_LYJ::Pose3D TcwP;
 	TcwP.getR() << 0.00774473, 0.0383352, 0.999235,
 		-0.0480375, 0.998125, -0.0379202,
 		-0.998815, -0.047707, 0.00957183;
 	TcwP.gett() << -0.0615093,
 		-0.16702,
 		0.011672;
-	SLAM_LYJ::PinholeCamera cam(w, h, Kd);
+	COMMON_LYJ::PinholeCamera cam(w, h, Kd);
 	COMMON_LYJ::drawCam("D:/tmp/camVulkan.ply", cam, TcwP.inversed(), 10);
 	Eigen::Matrix<float, 3, 4> T;
 	T.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
@@ -579,7 +578,7 @@ void testProject()
 	for (int i = 0; i < 100; ++i)
 	{
 		//projectVK.project(T.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
-		SLAM_LYJ::Pose3D Tcw2;
+		COMMON_LYJ::Pose3D Tcw2;
 		std::string poseName = "D:/tmp/texture_data/RT_" + std::to_string(i) + ".txt";
 		if (!stlplus::file_exists(poseName))
 			continue;
@@ -588,7 +587,7 @@ void testProject()
 		Eigen::Matrix<float, 3, 4> T2;
 		T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
 		T2.block(0, 3, 3, 1) = Tcw2.gett().cast<float>();
-		SLAM_LYJ::Timer q;
+		COMMON_LYJ::Timer q;
 		projectVK.project(T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
 		auto t = q.elapsed();
 		std::cout << "project cost: " << t << " ms" << std::endl;
@@ -601,9 +600,9 @@ void testProject()
 		//			continue;
 		//		retPs.push_back(vertexs[i]);
 		//	}
-		//	SLAM_LYJ::BaseTriMesh btmTmp;
+		//	COMMON_LYJ::BaseTriMesh btmTmp;
 		//	btmTmp.setVertexs(retPs);
-		//	SLAM_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
+		//	COMMON_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
 		//	std::vector<Eigen::Vector3f> retFs;
 		//	for (int i = 0; i < fn; ++i)
 		//	{
@@ -611,9 +610,9 @@ void testProject()
 		//			continue;
 		//		retFs.push_back(fCenters[i]);
 		//	}
-		//	SLAM_LYJ::BaseTriMesh btmTmp2;
+		//	COMMON_LYJ::BaseTriMesh btmTmp2;
 		//	btmTmp2.setVertexs(retFs);
-		//	SLAM_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
+		//	COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
 		//}
 		//{
 		//	std::vector<Eigen::Vector3f> fccc;
@@ -627,9 +626,9 @@ void testProject()
 		//			fccc.push_back(fCenters[fid]);
 		//		}
 		//	}
-		//	SLAM_LYJ::BaseTriMesh btmtmp;
+		//	COMMON_LYJ::BaseTriMesh btmtmp;
 		//	btmtmp.setVertexs(fccc);
-		//	SLAM_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
+		//	COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
 		//}
 		{
 			//std::vector<Eigen::Vector3f> PcsTmp;
@@ -653,9 +652,9 @@ void testProject()
 					mmmd.at<uchar>(i, j) = (uchar)dddc;
 				}
 			}
-			//SLAM_LYJ::BaseTriMesh btmtmp;
+			//COMMON_LYJ::BaseTriMesh btmtmp;
 			//btmtmp.setVertexs(PcsTmp);
-			//SLAM_LYJ::writePLYMesh("D:/tmp/PcsTmp.ply", btmtmp);
+			//COMMON_LYJ::writePLYMesh("D:/tmp/PcsTmp.ply", btmtmp);
 			//cv::imwrite("D:/tmp/depth.png", mmmd);
 			cv::imshow("dVK", mmmd);
 			cv::waitKey();
