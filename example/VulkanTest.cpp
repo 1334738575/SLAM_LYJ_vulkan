@@ -569,7 +569,7 @@ void testProject()
 	T.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
 
 
-	LYJ_VK::ProjectorVK projectVK;
+	LYJ_VK::ProjectorVKSimple projectVK;
 	projectVK.create(vertexs[0].data(), vn, fCenters[0].data(), fNormals[0].data(), faces[0].vId_, fn, K.data(), w, h);
 	std::vector<uint> fIdsOut(w * h, UINT_MAX);
 	std::vector<float> depthsOut(w * h, FLT_MAX);
@@ -592,44 +592,47 @@ void testProject()
 		auto t = q.elapsed();
 		std::cout << "project cost: " << t << " ms" << std::endl;
 
-		//{
-		//	std::vector<Eigen::Vector3f> retPs;
-		//	for (int i = 0; i < vn; ++i)
-		//	{
-		//		if (PValidsOut[i] == 0)
-		//			continue;
-		//		retPs.push_back(vertexs[i]);
-		//	}
-		//	COMMON_LYJ::BaseTriMesh btmTmp;
-		//	btmTmp.setVertexs(retPs);
-		//	COMMON_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
-		//	std::vector<Eigen::Vector3f> retFs;
-		//	for (int i = 0; i < fn; ++i)
-		//	{
-		//		if (fValidsOut[i] == 1)
-		//			continue;
-		//		retFs.push_back(fCenters[i]);
-		//	}
-		//	COMMON_LYJ::BaseTriMesh btmTmp2;
-		//	btmTmp2.setVertexs(retFs);
-		//	COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
-		//}
-		//{
-		//	std::vector<Eigen::Vector3f> fccc;
-		//	for (int i = 0; i < h; ++i)
-		//	{
-		//		for (int j = 0; j < w; ++j)
-		//		{
-		//			const uint32_t& fid = fIdsOut[i * w + j];
-		//			if (fid == UINT_MAX)
-		//				continue;
-		//			fccc.push_back(fCenters[fid]);
-		//		}
-		//	}
-		//	COMMON_LYJ::BaseTriMesh btmtmp;
-		//	btmtmp.setVertexs(fccc);
-		//	COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
-		//}
+		if(false)
+		{
+			std::vector<Eigen::Vector3f> retPs;
+			for (int i = 0; i < vn; ++i)
+			{
+				if (PValidsOut[i] == 0)
+					continue;
+				retPs.push_back(vertexs[i]);
+			}
+			COMMON_LYJ::BaseTriMesh btmTmp;
+			btmTmp.setVertexs(retPs);
+			COMMON_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
+			std::vector<Eigen::Vector3f> retFs;
+			for (int i = 0; i < fn; ++i)
+			{
+				if (fValidsOut[i] == 0)
+					continue;
+				retFs.push_back(fCenters[i]);
+			}
+			COMMON_LYJ::BaseTriMesh btmTmp2;
+			btmTmp2.setVertexs(retFs);
+			COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
+		}
+		if(false)
+		{
+			std::vector<Eigen::Vector3f> fccc;
+			for (int i = 0; i < h; ++i)
+			{
+				for (int j = 0; j < w; ++j)
+				{
+					const uint32_t& fid = fIdsOut[i * w + j];
+					if (fid == UINT_MAX)
+						continue;
+					fccc.push_back(fCenters[fid]);
+				}
+			}
+			COMMON_LYJ::BaseTriMesh btmtmp;
+			btmtmp.setVertexs(fccc);
+			COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
+		}
+		if(false)
 		{
 			//std::vector<Eigen::Vector3f> PcsTmp;
 			//Eigen::Vector2d uvTmp;

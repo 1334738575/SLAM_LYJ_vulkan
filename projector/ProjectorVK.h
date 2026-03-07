@@ -6,34 +6,6 @@
 
 NSP_VULKAN_LYJ_BEGIN
 
-//class ProjectorCacheVK
-//{
-//public:
-//    ProjectorCacheVK() {};
-//    ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
-//    ~ProjectorCacheVK();
-//
-//    unsigned int PSize_ = 0;
-//    unsigned int fSize_ = 0;
-//    int w_ = 0;
-//    int h_ = 0;
-//
-//    void init(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
-//private:
-//
-//};
-//ProjectorCacheVK::ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
-//    :PSize_(_PSize), fSize_(_fSize), w_(_w), h_(_h)
-//{
-//    init(PSize_, fSize_, w_, h_);
-//}
-//ProjectorCacheVK::~ProjectorCacheVK()
-//{
-//}
-//void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
-//{
-//}
-
 struct UBOProjectCompute
 {
     uint32_t vSize;
@@ -61,11 +33,11 @@ struct UBOProjectGraph
 };
 
 
-class VULKAN_LYJ_API ProjectorVK
+class VULKAN_LYJ_API ProjectorVKSimple
 {
 public:
-    ProjectorVK();
-    ~ProjectorVK();
+    ProjectorVKSimple();
+    ~ProjectorVKSimple();
 
     bool create(const float* Pws, const unsigned int PSize,
         const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
@@ -150,6 +122,109 @@ private:
     std::shared_ptr<LYJ_VK::VKImp> impCheckF;
 };
 
+
+class ProjectorCacheVK
+{
+public:
+    ProjectorCacheVK() {};
+    ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
+    ~ProjectorCacheVK();
+
+    unsigned int PSize_ = 0;
+    unsigned int fSize_ = 0;
+    int w_ = 0;
+    int h_ = 0;
+
+    std::shared_ptr<VKBufferCompute> TBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferUniform> uboCom;
+    std::shared_ptr<LYJ_VK::VKBufferUniform> uboGraph;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> PcsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> uvPsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fccsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fncsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> uvfcsBuffer;
+
+    std::shared_ptr<LYJ_VK::VKBufferCompute> depthsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> PValidsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fValidsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferImage> fIdsImgBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferImage> depthsImgBuffer;
+
+
+    uint32_t kernel_ = 1024;
+    VkDeviceSize PBufferSize;
+    VkDeviceSize fBufferSize;
+    std::shared_ptr<VKFence> fence_;
+    VkQueue queue;
+    VkQueue graphicQueue;
+    VkDeviceSize fIdsBufferSize;
+    VkDeviceSize depthsBufferSize;
+    VkDeviceSize PValidsBufferSize;
+    VkDeviceSize fValidsBufferSize;
+
+    std::vector<std::shared_ptr<VKCommandAbr>> cmdBars;
+
+    //shader
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransV;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comProV;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransF;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comProF;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransN;
+    std::shared_ptr<LYJ_VK::VKCommandTransfer> cmdTransferUVZ;
+    std::shared_ptr<LYJ_VK::VKPipelineGraphics> graphDepth;
+    std::shared_ptr<LYJ_VK::VKCommandTransfer> cmdTransferDepth;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comRestriveDepth;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckV;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckF;
+
+    //imp
+    std::shared_ptr<LYJ_VK::VKImp> impTransV;
+    std::shared_ptr<LYJ_VK::VKImp> impProV;
+    std::shared_ptr<LYJ_VK::VKImp> impTransF;
+    std::shared_ptr<LYJ_VK::VKImp> impProF;
+    std::shared_ptr<LYJ_VK::VKImp> impTransN;
+    std::shared_ptr<LYJ_VK::VKImp> impTransUVZ;
+    std::shared_ptr<LYJ_VK::VKImp> impDepths;
+    std::shared_ptr<LYJ_VK::VKImp> impTransDepth;
+    std::shared_ptr<LYJ_VK::VKImp> impRestriveDepth;
+    std::shared_ptr<LYJ_VK::VKImp> impCheckV;
+    std::shared_ptr<LYJ_VK::VKImp> impCheckF;
+
+
+    void init(unsigned int _PSize, unsigned int _fSize, int _w, int _h);
+private:
+
+};
+
+class ProjectorVK
+{
+public:
+    ProjectorVK() {};
+    ~ProjectorVK() {};
+
+    void create(const float* Pws, const unsigned int PSize,
+        const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
+        float* camParams, const int w, const int h);
+
+    void project(ProjectorCacheVK& cache,
+        float* Tcw,
+        float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds,
+        float minD = 0, float maxD = FLT_MAX, float csTh = 0, float detDTh = 1);
+
+    void release();
+
+    unsigned int PSize = 0;
+    unsigned int fSize = 0;
+    int w_ = 0;
+    int h_ = 0;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> PwsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fcwsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> fnsBuffer;
+
+private:
+
+};
 
 NSP_VULKAN_LYJ_END
 

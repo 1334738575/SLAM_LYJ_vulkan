@@ -4,15 +4,12 @@ NSP_VULKAN_LYJ_BEGIN
 
 
 
-ProjectorVK::ProjectorVK()
-{
-}
+ProjectorVKSimple::ProjectorVKSimple()
+{}
+ProjectorVKSimple::~ProjectorVKSimple()
+{}
 
-ProjectorVK::~ProjectorVK()
-{
-}
-
-bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
+bool ProjectorVKSimple::create(const float* Pws, const unsigned int PSize,
     const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
     float* camParams, const int w, const int h)
 {
@@ -20,7 +17,7 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     lyjVK = GetLYJVKInstance();
     if (!lyjVK->isInited())
     {
-        if (lyjVK->init(false, nullptr, true) != VK_SUCCESS)
+        if (lyjVK->init(false, nullptr, false) != VK_SUCCESS)
         {
             std::cout << "init vulkan fail!" << std::endl;
             return false;
@@ -326,13 +323,14 @@ bool ProjectorVK::create(const float* Pws, const unsigned int PSize,
     return true;
 }
 
-void ProjectorVK::project(float* Tcw, float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh)
+void ProjectorVKSimple::project(float* Tcw, float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh)
 {
     auto& fence = *fence_;
     uboComCPU_.minD = minD;
     uboComCPU_.maxD = maxD;
     uboComCPU_.csTh = csTh;
     uboComCPU_.detd = detDTh;
+    uboGraphCPU_.maxD = maxD;
 
 
     TBuffer->upload(12 * sizeof(float), Tcw, queue);
@@ -390,10 +388,6 @@ void ProjectorVK::project(float* Tcw, float* depths, unsigned int* fIds, char* a
     memcpy(fIds_.data(), dataf, fIdsBufferSize);
     memcpy(PValids_.data(), pvalidPtr, PValidsBufferSize);
     memcpy(fValids_.data(), fvalidPtr, fValidsBufferSize);
-    depthsBuffer->releaseBufferCopy();
-    fIdsImgBuffer->releaseBufferCopy();
-    PValidsBuffer->releaseBufferCopy();
-    fValidsBuffer->releaseBufferCopy();
 
     uint32_t sss = uboComCPU_.w * uboComCPU_.h;
     for (int i = 0; i < sss; ++i) {
@@ -414,11 +408,16 @@ void ProjectorVK::project(float* Tcw, float* depths, unsigned int* fIds, char* a
     for (int i = 0; i < uboComCPU_.fSize; ++i) {
         allVisibleFIds[i] = (char)fValids_[i];
     }
+    return;
 }
 
-void ProjectorVK::release()
+void ProjectorVKSimple::release()
 {
     // free
+    depthsBuffer->releaseBufferCopy();
+    fIdsImgBuffer->releaseBufferCopy();
+    PValidsBuffer->releaseBufferCopy();
+    fValidsBuffer->releaseBufferCopy();
     cmdBars.clear();
 
     PwsBuffer->destroy();
@@ -457,6 +456,20 @@ void ProjectorVK::release()
     impDepths->destroy();
     impCheckV->destroy();
     impCheckF->destroy();
+}
+
+
+
+
+ProjectorCacheVK::ProjectorCacheVK(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
+    :PSize_(_PSize), fSize_(_fSize), w_(_w), h_(_h)
+{
+    init(PSize_, fSize_, w_, h_);
+}
+ProjectorCacheVK::~ProjectorCacheVK()
+{}
+void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, int _h)
+{
 }
 
 NSP_VULKAN_LYJ_END

@@ -218,6 +218,8 @@ void *VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fenc
 		std::cout << "need queue!" << std::endl;
 		return nullptr;
 	}
+	if(m_bufferCopy)
+		m_bufferCopy->destroy();
 	m_bufferCopy.reset(new VKBufferTrans());
 	void *ret = m_bufferCopy->download(_size);
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
@@ -367,6 +369,8 @@ void *VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 		std::cout << "need queue!" << std::endl;
 		return nullptr;
 	}
+	if (m_bufferCopy)
+		m_bufferCopy->destroy();
 	m_bufferCopy.reset(new VKBufferTrans());
 	void *ret = m_bufferCopy->download(_size);
 
