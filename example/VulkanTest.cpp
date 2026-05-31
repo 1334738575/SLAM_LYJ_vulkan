@@ -31,7 +31,7 @@ VKComputeTest::~VKComputeTest()
 }
 bool VKComputeTest::init()
 {
-	LYJ_VK::VKInstance *lyjVK = LYJ_VK::GetLYJVKInstance();
+	LYJ_VK::VKInstance* lyjVK = LYJ_VK::GetLYJVKInstance();
 	if (!lyjVK->isInited())
 	{
 		if (lyjVK->init(false, nullptr, true) != VK_SUCCESS)
@@ -44,7 +44,7 @@ bool VKComputeTest::init()
 }
 void VKComputeTest::run()
 {
-	LYJ_VK::VKInstance *lyjVK = LYJ_VK::GetLYJVKInstance();
+	LYJ_VK::VKInstance* lyjVK = LYJ_VK::GetLYJVKInstance();
 	VkDevice device = lyjVK->m_device;
 	VkQueue computeQueue = lyjVK->m_computeQueues[0];
 	VkCommandPool computeCommandPool = lyjVK->m_computeCommandPool;
@@ -56,12 +56,12 @@ void VKComputeTest::run()
 	std::vector<uint32_t> computeInput(computeSize);
 	std::vector<uint32_t> computeOutput(computeSize);
 	std::generate(computeInput.begin(), computeInput.end(), [&n]
-				  { return n++; });
+		{ return n++; });
 	std::vector<uint32_t> computeInput2(computeSize);
 	std::vector<uint32_t> computeOutput2(computeSize);
 	uint32_t n2 = 5;
 	std::generate(computeInput2.begin(), computeInput2.end(), [&n2]
-				  { return n2++; });
+		{ return n2++; });
 	const VkDeviceSize bufferSize2 = computeSize * sizeof(uint32_t);
 
 	// upload
@@ -91,16 +91,16 @@ void VKComputeTest::run()
 	m_com2->setRunKernel(32);
 	VK_CHECK_RESULT(m_com2->build());
 	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrier(
-		{m_devBuffer->getBuffer(), m_devBuffer2->getBuffer()},
+		{ m_devBuffer->getBuffer(), m_devBuffer2->getBuffer() },
 		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrier2(
-		{m_devBuffer->getBuffer(), m_devBuffer2->getBuffer()},
+		{ m_devBuffer->getBuffer(), m_devBuffer2->getBuffer() },
 		VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_MEMORY_READ_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	LYJ_VK::VKCommandMemoryBarrier endBarrier;
 	m_imp.reset(new LYJ_VK::VKImp(0));
-	m_imp->setCmds({&cmdBufferBarrier, m_com1.get(), &cmdBufferBarrier2, m_com2.get(), &endBarrier});
+	m_imp->setCmds({ &cmdBufferBarrier, m_com1.get(), &cmdBufferBarrier2, m_com2.get(), &endBarrier });
 
 	// compute
 	LYJ_VK::VKFence fence;
@@ -115,8 +115,8 @@ void VKComputeTest::run()
 	// download
 	// uint32_t* retPtr2 = (uint32_t*)m_devBuffer2->download(bufferSize, computeOutput2.data(), computeQueue);
 	// uint32_t* retPtr = (uint32_t*)m_devBuffer->download(bufferSize, computeOutput.data(), computeQueue);
-	uint32_t *retPtr2 = (uint32_t *)m_devBuffer2->download(bufferSize, computeQueue);
-	uint32_t *retPtr = (uint32_t *)m_devBuffer->download(bufferSize, computeQueue, fence.ptr());
+	uint32_t* retPtr2 = (uint32_t*)m_devBuffer2->download(bufferSize, computeQueue);
+	uint32_t* retPtr = (uint32_t*)m_devBuffer->download(bufferSize, computeQueue, fence.ptr());
 	fence.wait();
 	memcpy(computeOutput2.data(), retPtr2, bufferSize);
 	memcpy(computeOutput.data(), retPtr, bufferSize);
@@ -201,39 +201,39 @@ void VKGraphicTest::init()
 
 	// texture2d
 	auto funcCreateTextureImage = [&]()
-	{
-		VkDevice device = m_lyjVK->m_device;
-		VkCommandPool graphicsCommandPool = m_lyjVK->m_graphicsCommandPool;
-		VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
-		VkPhysicalDeviceMemoryProperties deviceMemoryProperties = m_lyjVK->m_memProperties;
-		uint32_t imgCnt = m_imgSize;
-
-		std::string imgName = imagePath + "IMG_9179[1](1).png";
-		cv::Mat image1 = cv::imread(imgName, 0);
-		cv::Mat image2 = image1.clone();
-		if (image1.empty() || image2.empty())
 		{
-			throw std::runtime_error("failed to load texture image!");
-		}
-		cv::Mat image = cv::Mat::zeros(image1.rows, image1.cols + image2.cols, image1.type());
-		cv::Rect rect1(0, 0, image1.cols, image1.rows);
-		cv::Rect rect2(image1.cols, 0, image2.cols, image2.rows);
-		image1.copyTo(image(rect1));
-		image2.copyTo(image(rect2));
-		if (image.channels() == 1)
-			cv::cvtColor(image, image, cv::COLOR_GRAY2RGBA);
+			VkDevice device = m_lyjVK->m_device;
+			VkCommandPool graphicsCommandPool = m_lyjVK->m_graphicsCommandPool;
+			VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
+			VkPhysicalDeviceMemoryProperties deviceMemoryProperties = m_lyjVK->m_memProperties;
+			uint32_t imgCnt = m_imgSize;
 
-		const int width = image.cols;
-		const int height = image.rows;
-		m_image.reset(new LYJ_VK::VKBufferSamplerImage(width, height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
-		// m_image->upload(width* height * 4, image.data, graphicQueue);
-		LYJ_VK::VKFence fence;
-		m_image->upload(width * height * 4, image.data, graphicQueue, fence.ptr());
-		fence.wait();
-		m_image->releaseBufferCopy();
-		for (int i = 0; i < imgCnt; ++i)
-			m_pipelineGraphics->setBufferBinding(3, m_image.get(), i);
-	};
+			std::string imgName = imagePath + "IMG_9179[1](1).png";
+			cv::Mat image1 = cv::imread(imgName, 0);
+			cv::Mat image2 = image1.clone();
+			if (image1.empty() || image2.empty())
+			{
+				throw std::runtime_error("failed to load texture image!");
+			}
+			cv::Mat image = cv::Mat::zeros(image1.rows, image1.cols + image2.cols, image1.type());
+			cv::Rect rect1(0, 0, image1.cols, image1.rows);
+			cv::Rect rect2(image1.cols, 0, image2.cols, image2.rows);
+			image1.copyTo(image(rect1));
+			image2.copyTo(image(rect2));
+			if (image.channels() == 1)
+				cv::cvtColor(image, image, cv::COLOR_GRAY2RGBA);
+
+			const int width = image.cols;
+			const int height = image.rows;
+			m_image.reset(new LYJ_VK::VKBufferSamplerImage(width, height, 4, 1, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT8));
+			// m_image->upload(width* height * 4, image.data, graphicQueue);
+			LYJ_VK::VKFence fence;
+			m_image->upload(width * height * 4, image.data, graphicQueue, fence.ptr());
+			fence.wait();
+			m_image->releaseBufferCopy();
+			for (int i = 0; i < imgCnt; ++i)
+				m_pipelineGraphics->setBufferBinding(3, m_image.get(), i);
+		};
 	// funcCreateTextureImage();
 	// return;
 
@@ -241,45 +241,45 @@ void VKGraphicTest::init()
 	const float edgeRatio = 0.5;
 	const float textureEdgeRatio = 1.0;
 	auto funcGenerateQuad = [&]()
-	{
-		VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
-		std::vector<Vertex> vertices =
+		{
+			VkQueue graphicQueue = m_lyjVK->m_graphicQueues[0];
+			std::vector<Vertex> vertices =
 			{
 				{{edgeRatio, edgeRatio, 0.5f}, {textureEdgeRatio, textureEdgeRatio}, {0.f, 0.f, 1.f}},
 				{{-edgeRatio, edgeRatio, 0.5f}, {0.f, textureEdgeRatio}, {0.f, 0.f, 1.f}},
 				{{-edgeRatio, -edgeRatio, 0.5f}, {0.f, 0.f}, {0.f, 0.f, 1.f}},
-				{{edgeRatio, -edgeRatio, 0.5f}, {textureEdgeRatio, 0.f}, {0.f, 0.f, 1.f}}};
-		std::vector<uint32_t> indices = {0, 1, 2, 2, 3, 0};
-		m_verBuffer.reset(new LYJ_VK::VKBufferVertex());
-		m_verBuffer->upload(vertices.size() * sizeof(Vertex), vertices.data(), graphicQueue);
-		m_indBuffer.reset(new LYJ_VK::VKBufferIndex());
-		m_indBuffer->upload(indices.size() * sizeof(uint32_t), indices.data(), graphicQueue);
-		LYJ_VK::ClassResolver classResolver;
-		classResolver.addBindingDescriptor(0, sizeof(Vertex));
-		classResolver.addAttributeDescriptor(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos));
-		classResolver.addAttributeDescriptor(0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv));
-		classResolver.addAttributeDescriptor(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal));
-		m_pipelineGraphics->setVertexBuffer(m_verBuffer.get(), vertices.size(), classResolver);
-		m_pipelineGraphics->setIndexBuffer(m_indBuffer.get(), indices.size());
-		vkQueueWaitIdle(m_lyjVK->m_graphicQueues[0]);
-		m_verBuffer->releaseBufferCopy();
-		m_indBuffer->releaseBufferCopy();
-	};
+				{{edgeRatio, -edgeRatio, 0.5f}, {textureEdgeRatio, 0.f}, {0.f, 0.f, 1.f}} };
+			std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
+			m_verBuffer.reset(new LYJ_VK::VKBufferVertex());
+			m_verBuffer->upload(vertices.size() * sizeof(Vertex), vertices.data(), graphicQueue);
+			m_indBuffer.reset(new LYJ_VK::VKBufferIndex());
+			m_indBuffer->upload(indices.size() * sizeof(uint32_t), indices.data(), graphicQueue);
+			LYJ_VK::ClassResolver classResolver;
+			classResolver.addBindingDescriptor(0, sizeof(Vertex));
+			classResolver.addAttributeDescriptor(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos));
+			classResolver.addAttributeDescriptor(0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv));
+			classResolver.addAttributeDescriptor(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal));
+			m_pipelineGraphics->setVertexBuffer(m_verBuffer.get(), vertices.size(), classResolver);
+			m_pipelineGraphics->setIndexBuffer(m_indBuffer.get(), indices.size());
+			vkQueueWaitIdle(m_lyjVK->m_graphicQueues[0]);
+			m_verBuffer->releaseBufferCopy();
+			m_indBuffer->releaseBufferCopy();
+		};
 	funcGenerateQuad();
 	// return;
 
 	// uniform buffer
 	auto funcCreateUniformBuffers = [&]()
-	{
-		uint32_t imageCnt = m_imgSize;
-		m_uniBuffers.resize(imageCnt, nullptr);
-		for (uint32_t i = 0; i < m_uniBuffers.size(); ++i)
 		{
-			m_uniBuffers[i].reset(new LYJ_VK::VKBufferUniform());
-			m_uniBuffers[i]->resize(sizeof(ShaderData));
-			m_pipelineGraphics->setBufferBinding(0, m_uniBuffers[i].get(), i);
-		}
-	};
+			uint32_t imageCnt = m_imgSize;
+			m_uniBuffers.resize(imageCnt, nullptr);
+			for (uint32_t i = 0; i < m_uniBuffers.size(); ++i)
+			{
+				m_uniBuffers[i].reset(new LYJ_VK::VKBufferUniform());
+				m_uniBuffers[i]->resize(sizeof(ShaderData));
+				m_pipelineGraphics->setBufferBinding(0, m_uniBuffers[i].get(), i);
+			}
+		};
 	funcCreateUniformBuffers();
 	// return;
 
@@ -287,7 +287,7 @@ void VKGraphicTest::init()
 	{
 		if (m_bPresent)
 		{
-			std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>> &images = m_swapChain->getImages();
+			std::vector<std::shared_ptr<LYJ_VK::VKBufferImage>>& images = m_swapChain->getImages();
 			for (size_t i = 0; i < m_swapChain->getImageCnt(); ++i)
 			{
 				m_pipelineGraphics->setImage(i, 0, images[i]);
@@ -321,7 +321,7 @@ void VKGraphicTest::init()
 	for (int i = 0; i < m_imgSize; ++i)
 	{
 		m_imps[i].reset(new LYJ_VK::VKImp(0));
-		m_imps[i]->setCmds({m_pipelineGraphics.get()});
+		m_imps[i]->setCmds({ m_pipelineGraphics.get() });
 	}
 	// return;
 
@@ -334,14 +334,14 @@ void VKGraphicTest::init()
 	{
 		if (m_bPresent)
 			m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
-				{m_pipelineGraphics->getImage(i, 0)->getImage()}, {m_pipelineGraphics->getImage(i, 0)->getSubresource()},
+				{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i, 0)->getSubresource() },
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
 		else
 			m_cmdImgBarriers[i].reset(new LYJ_VK::VKCommandImageBarrier(
-				{m_pipelineGraphics->getImage(i, 0)->getImage()}, {m_pipelineGraphics->getImage(i, 0)->getSubresource()},
+				{ m_pipelineGraphics->getImage(i, 0)->getImage() }, { m_pipelineGraphics->getImage(i, 0)->getSubresource() },
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -352,7 +352,7 @@ void VKGraphicTest::init()
 void VKGraphicTest::mainLoop()
 {
 	VkDevice device = m_lyjVK->m_device;
-	GLFWwindow *windows = m_lyjVK->m_windows;
+	GLFWwindow* windows = m_lyjVK->m_windows;
 
 	while (!glfwWindowShouldClose(windows))
 	{
@@ -387,7 +387,7 @@ void VKGraphicTest::drawFrame()
 		0.0f, 1.0f, 0.0f, 0.0f,
 		0.0f, 0.0f, 1.0f, 0.0f,
 		xof, 0.0f, 0.0f, 1.0f);
-	const VkExtent2D &extent2D = m_swapChain->getExtent2D();
+	const VkExtent2D& extent2D = m_swapChain->getExtent2D();
 	// shaderData.projectionMatrix = glm::perspective(glm::radians(-90.0f), (float)extent2D.width / (float)extent2D.width, 0.1f, 2.f);
 	// shaderData.projectionMatrix *= -1;
 	shaderData.viewMatrix = glm::mat4(
@@ -404,14 +404,14 @@ void VKGraphicTest::drawFrame()
 	m_uniBuffers[imageIndex]->upload(sizeof(ShaderData), &shaderData, graphicQueue);
 	if (m_bPresent)
 	{
-		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		m_imps[imageIndex]->run(graphicQueue, m_fence->ptr(), {m_availableSemaphore->ptr()}, {m_finishedSemaphore->ptr()}, waitStages);
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		m_imps[imageIndex]->run(graphicQueue, m_fence->ptr(), { m_availableSemaphore->ptr() }, { m_finishedSemaphore->ptr() }, waitStages);
 	}
 	else
 		m_imps[imageIndex]->run(graphicQueue, m_fence->ptr());
 
 	LYJ_VK::VKImp impTmp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-	impTmp.setCmds({m_cmdImgBarriers[imageIndex].get()});
+	impTmp.setCmds({ m_cmdImgBarriers[imageIndex].get() });
 	LYJ_VK::VKFence fenceTmp;
 	impTmp.run(graphicQueue, fenceTmp.ptr());
 	fenceTmp.wait();
@@ -428,7 +428,7 @@ void VKGraphicTest::drawFrame()
 			int step = lyjImg->getStep();
 			int s = w * h * c * step;
 			LYJ_VK::VKFence fenceTmp;
-			void *data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
+			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
 			fenceTmp.wait();
 			cv::Mat mmm(h, w, CV_8UC4);
 			// cv::Mat mmm(h, w, CV_32FC4);
@@ -443,7 +443,7 @@ void VKGraphicTest::drawFrame()
 			int step = lyjImg->getStep();
 			int s = w * h * c * step;
 			LYJ_VK::VKFence fenceTmp;
-			void *data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
+			void* data = lyjImg->download(s, graphicQueue, fenceTmp.ptr());
 			fenceTmp.wait();
 			cv::Mat mmm(h, w, CV_32SC1);
 			cv::Mat mmm2(h, w, CV_8UC1);
@@ -467,11 +467,11 @@ void VKGraphicTest::drawFrame()
 			int step = lyjDepth->getStep();
 			int s = w * h * c * step;
 			LYJ_VK::VKFence fenceTmp;
-			void *data = lyjDepth->download(s, graphicQueue, fenceTmp.ptr());
+			void* data = lyjDepth->download(s, graphicQueue, fenceTmp.ptr());
 			fenceTmp.wait();
 			cv::Mat mmm(h, w, CV_32FC1);
 			memcpy(mmm.data, data, s);
-			float *ppp = (float *)mmm.data;
+			float* ppp = (float*)mmm.data;
 			lyjDepth->releaseBufferCopy();
 			cv::imshow("222", mmm);
 			cv::waitKey();
@@ -480,9 +480,9 @@ void VKGraphicTest::drawFrame()
 
 	if (m_bPresent)
 	{
-		std::vector<VkSwapchainKHR> swapChains = {swapChain};
-		std::vector<uint32_t> imageIndices = {imageIndex};
-		std::vector<VkSemaphore> renderFinishedSemaphores = {m_finishedSemaphore->ptr()};
+		std::vector<VkSwapchainKHR> swapChains = { swapChain };
+		std::vector<uint32_t> imageIndices = { imageIndex };
+		std::vector<VkSemaphore> renderFinishedSemaphores = { m_finishedSemaphore->ptr() };
 		LYJ_VK::VKImpPresent presentImp;
 		if (presentImp.present(presentQueue, swapChains, imageIndices, renderFinishedSemaphores) != VK_SUCCESS)
 		{
@@ -569,8 +569,9 @@ void testProject()
 	T.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
 
 
-	LYJ_VK::ProjectorVKSimple projectVK;
+	LYJ_VK::ProjectorVK projectVK;
 	projectVK.create(vertexs[0].data(), vn, fCenters[0].data(), fNormals[0].data(), faces[0].vId_, fn, K.data(), w, h);
+	LYJ_VK::ProjectorCacheVK projectCache(vn, fn, w, h);
 	std::vector<uint> fIdsOut(w * h, UINT_MAX);
 	std::vector<float> depthsOut(w * h, FLT_MAX);
 	std::vector<char> PValidsOut(vn, 0);
@@ -588,11 +589,11 @@ void testProject()
 		T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
 		T2.block(0, 3, 3, 1) = Tcw2.gett().cast<float>();
 		COMMON_LYJ::Timer q;
-		projectVK.project(T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
+		projectVK.project(projectCache, T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
 		auto t = q.elapsed();
 		std::cout << "project cost: " << t << " ms" << std::endl;
 
-		if(false)
+		if (false)
 		{
 			std::vector<Eigen::Vector3f> retPs;
 			for (int i = 0; i < vn; ++i)
@@ -615,7 +616,7 @@ void testProject()
 			btmTmp2.setVertexs(retFs);
 			COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
 		}
-		if(false)
+		if (false)
 		{
 			std::vector<Eigen::Vector3f> fccc;
 			for (int i = 0; i < h; ++i)
@@ -632,7 +633,7 @@ void testProject()
 			btmtmp.setVertexs(fccc);
 			COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
 		}
-		if(false)
+		if (false)
 		{
 			//std::vector<Eigen::Vector3f> PcsTmp;
 			//Eigen::Vector2d uvTmp;
@@ -664,6 +665,7 @@ void testProject()
 		}
 	}
 
+	projectCache.release();
 	projectVK.release();
 }
 

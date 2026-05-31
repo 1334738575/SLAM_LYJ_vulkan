@@ -289,7 +289,7 @@ VkResult VKInstance::createPhysicalDevice()
 		vkGetPhysicalDeviceFeatures(device, &devFeature);
 		vkGetPhysicalDeviceMemoryProperties(device, &memProperties);
 
-		bool ret = devProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && devFeature.geometryShader\
+		bool ret = devFeature.geometryShader\
 			&& indices.isCompleteGraphic() && indices.isCompleteCompute() &&
 			( !m_bGlfw || ( m_bGlfw && extensionsSupported && swapChainAdequate && indices.isCompletePresent()) );
 
@@ -324,10 +324,19 @@ VkResult VKInstance::createPhysicalDevice()
 	}
 	std::vector<VkPhysicalDevice> devices(deviceCnt);
 	vkEnumeratePhysicalDevices(m_instance, &deviceCnt, devices.data());
+	int bestScore = -1;
 	for (const auto& device : devices) {
 		if (funcDeviceSuitable(device)) {
-			m_physicalDevice = device;
-			break;
+			int score = 0;
+			if (m_devProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+				score += 1000;
+			else if (m_devProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+				score += 500;
+			score += static_cast<int>(m_devProperties.limits.maxImageDimension2D);
+			if (score > bestScore) {
+				bestScore = score;
+				m_physicalDevice = device;
+			}
 		}
 	}
 	if (m_physicalDevice == VK_NULL_HANDLE) 
@@ -394,7 +403,7 @@ VkResult VKInstance::createDeviceAndQueue()
 		if (fi == m_queueIndices.graphicsFamily.value()) {
 			m_computeQueues = m_graphicQueues;
 		}
-		else if (m_queueIndices.presentFamily.value() == fi) {
+		else if (m_queueIndices.isCompletePresent() && m_queueIndices.presentFamily.value() == fi) {
 			m_computeQueues = m_presentQueues;
 		}
 		else {
@@ -441,7 +450,7 @@ VkResult VKInstance::createCommandPool()
 			else
 				return ret;
 		}
-		else if (m_queueIndices.presentFamily.value() == fi) {
+		else if (m_queueIndices.isCompletePresent() && m_queueIndices.presentFamily.value() == fi) {
 			if (ret == VK_SUCCESS)
 				m_computeCommandPool = m_presentCommandPool;
 			else
