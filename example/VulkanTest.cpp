@@ -5,6 +5,7 @@
 #include <IO/SimpleIO.h>
 #include <STLPlus/include/file_system.h>
 #include <common/Timer.h>
+#include <common/ThreadPool.h>
 
 
 #include "VulkanTest.h"
@@ -571,101 +572,113 @@ void testProject()
 
 	LYJ_VK::ProjectorVK projectVK;
 	projectVK.create(vertexs[0].data(), vn, fCenters[0].data(), fNormals[0].data(), faces[0].vId_, fn, K.data(), w, h);
-	LYJ_VK::ProjectorCacheVK projectCache(vn, fn, w, h);
-	std::vector<uint> fIdsOut(w * h, UINT_MAX);
-	std::vector<float> depthsOut(w * h, FLT_MAX);
-	std::vector<char> PValidsOut(vn, 0);
-	std::vector<char> fValidsOut(fn, 0);
-	for (int i = 0; i < 100; ++i)
-	{
-		//projectVK.project(T.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
-		COMMON_LYJ::Pose3D Tcw2;
-		std::string poseName = "D:/tmp/texture_data/RT_" + std::to_string(i) + ".txt";
-		if (!stlplus::file_exists(poseName))
-			continue;
-		COMMON_LYJ::readT34(poseName, Tcw2);
-		//COMMON_LYJ::drawCam("D:/tmp/camVulkan.ply", cam, Tcw2.inversed(), 10);
-		Eigen::Matrix<float, 3, 4> T2;
-		T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
-		T2.block(0, 3, 3, 1) = Tcw2.gett().cast<float>();
-		COMMON_LYJ::Timer q;
-		projectVK.project(projectCache, T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
-		auto t = q.elapsed();
-		std::cout << "project cost: " << t << " ms" << std::endl;
+	int queueSz = projectVK.getQueueCount();
+	queueSz = 10;
+	std::cout << "queue size: " << queueSz << std::endl;
+	std::vector<LYJ_VK::ProjectorCacheVK> projectCaches(queueSz);
+	for (int i = 0; i < queueSz; ++i)
+		projectCaches[i].init(vn, fn, w, h, i);
+	auto funcProject = [&](uint64_t _s, uint64_t _e, uint32_t _id)
+		{
+			std::vector<uint> fIdsOut(w * h, UINT_MAX);
+			std::vector<float> depthsOut(w * h, FLT_MAX);
+			std::vector<char> PValidsOut(vn, 0);
+			std::vector<char> fValidsOut(fn, 0);
+			for (int i = _s; i < _e; ++i)
+			{
+				COMMON_LYJ::Pose3D Tcw2;
+				std::string poseName = "D:/tmp/texture_data/RT_" + std::to_string(i) + ".txt";
+				if (!stlplus::file_exists(poseName))
+					continue;
+				COMMON_LYJ::readT34(poseName, Tcw2);
+				Eigen::Matrix<float, 3, 4> T2;
+				T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
+				T2.block(0, 3, 3, 1) = Tcw2.gett().cast<float>();
+				COMMON_LYJ::Timer q;
+				projectVK.project(projectCaches[_id], T2.data(), depthsOut.data(), fIdsOut.data(), PValidsOut.data(), fValidsOut.data(), 0, 30, 0.0, 0.1);
+				auto t = q.elapsed();
+				std::cout << "project cost: " << t << " ms" << std::endl;
 
-		if (false)
-		{
-			std::vector<Eigen::Vector3f> retPs;
-			for (int i = 0; i < vn; ++i)
-			{
-				if (PValidsOut[i] == 0)
-					continue;
-				retPs.push_back(vertexs[i]);
-			}
-			COMMON_LYJ::BaseTriMesh btmTmp;
-			btmTmp.setVertexs(retPs);
-			COMMON_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
-			std::vector<Eigen::Vector3f> retFs;
-			for (int i = 0; i < fn; ++i)
-			{
-				if (fValidsOut[i] == 0)
-					continue;
-				retFs.push_back(fCenters[i]);
-			}
-			COMMON_LYJ::BaseTriMesh btmTmp2;
-			btmTmp2.setVertexs(retFs);
-			COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
-		}
-		if (false)
-		{
-			std::vector<Eigen::Vector3f> fccc;
-			for (int i = 0; i < h; ++i)
-			{
-				for (int j = 0; j < w; ++j)
+				if (false)
 				{
-					const uint32_t& fid = fIdsOut[i * w + j];
-					if (fid == UINT_MAX)
-						continue;
-					fccc.push_back(fCenters[fid]);
+					std::vector<Eigen::Vector3f> retPs;
+					for (int i = 0; i < vn; ++i)
+					{
+						if (PValidsOut[i] == 0)
+							continue;
+						retPs.push_back(vertexs[i]);
+					}
+					COMMON_LYJ::BaseTriMesh btmTmp;
+					btmTmp.setVertexs(retPs);
+					COMMON_LYJ::writePLYMesh("D:/tmp/checkV.ply", btmTmp);
+					std::vector<Eigen::Vector3f> retFs;
+					for (int i = 0; i < fn; ++i)
+					{
+						if (fValidsOut[i] == 0)
+							continue;
+						retFs.push_back(fCenters[i]);
+					}
+					COMMON_LYJ::BaseTriMesh btmTmp2;
+					btmTmp2.setVertexs(retFs);
+					COMMON_LYJ::writePLYMesh("D:/tmp/checkF.ply", btmTmp2);
+				}
+				if (false)
+				{
+					std::vector<Eigen::Vector3f> fccc;
+					for (int i = 0; i < h; ++i)
+					{
+						for (int j = 0; j < w; ++j)
+						{
+							const uint32_t& fid = fIdsOut[i * w + j];
+							if (fid == UINT_MAX)
+								continue;
+							fccc.push_back(fCenters[fid]);
+						}
+					}
+					COMMON_LYJ::BaseTriMesh btmtmp;
+					btmtmp.setVertexs(fccc);
+					COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
+				}
+				if (false)
+				{
+					//std::vector<Eigen::Vector3f> PcsTmp;
+					//Eigen::Vector2d uvTmp;
+					cv::Mat mmmd(h, w, CV_8UC1);
+					for (int ii = 0; ii < h; ++ii)
+					{
+						for (int j = 0; j < w; ++j)
+						{
+							//Eigen::Vector3d Pc;
+							double dd = depthsOut[ii * w + j];
+							//uvTmp(0) = j;
+							//uvTmp(1) = ii;
+							//if (dd > 0.0f && dd != FLT_MAX)
+							//{
+							//	cam.image2World(uvTmp, dd, Pc);
+							//	PcsTmp.push_back(Pc.cast<float>());
+							//}
+							const float ddd = depthsOut[ii * w + j] / 30.0f;
+							int dddc = ddd * 255 > 255 ? 255 : ddd * 255;
+							mmmd.at<uchar>(ii, j) = (uchar)dddc;
+						}
+					}
+					//COMMON_LYJ::BaseTriMesh btmtmp;
+					//btmtmp.setVertexs(PcsTmp);
+					//COMMON_LYJ::writePLYMesh("D:/tmp/PcsTmp.ply", btmtmp);
+					cv::imwrite("tmp/depth" + std::to_string(i) + ".png", mmmd);
+					//cv::imshow("dVK", mmmd);
+					//cv::waitKey();
 				}
 			}
-			COMMON_LYJ::BaseTriMesh btmtmp;
-			btmtmp.setVertexs(fccc);
-			COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
-		}
-		if (false)
-		{
-			//std::vector<Eigen::Vector3f> PcsTmp;
-			//Eigen::Vector2d uvTmp;
-			cv::Mat mmmd(h, w, CV_8UC1);
-			for (int i = 0; i < h; ++i)
-			{
-				for (int j = 0; j < w; ++j)
-				{
-					//Eigen::Vector3d Pc;
-					double dd = depthsOut[i * w + j];
-					//uvTmp(0) = j;
-					//uvTmp(1) = i;
-					//if (dd > 0.0f && dd != FLT_MAX)
-					//{
-					//	cam.image2World(uvTmp, dd, Pc);
-					//	PcsTmp.push_back(Pc.cast<float>());
-					//}
-					const float ddd = depthsOut[i * w + j] / 30.0f;
-					int dddc = ddd * 255 > 255 ? 255 : ddd * 255;
-					mmmd.at<uchar>(i, j) = (uchar)dddc;
-				}
-			}
-			//COMMON_LYJ::BaseTriMesh btmtmp;
-			//btmtmp.setVertexs(PcsTmp);
-			//COMMON_LYJ::writePLYMesh("D:/tmp/PcsTmp.ply", btmtmp);
-			//cv::imwrite("D:/tmp/depth.png", mmmd);
-			cv::imshow("dVK", mmmd);
-			cv::waitKey();
-		}
-	}
+		};
+	COMMON_LYJ::ThreadPool thdpl(queueSz);
+	COMMON_LYJ::Timer qall;
+	thdpl.processWithId(funcProject, 0, 100);
+	auto t = qall.elapsed();
+	std::cout << "project total cost: " << t << " ms" << std::endl;
 
-	projectCache.release();
+	for (int i = 0; i < queueSz; ++i)
+		projectCaches[i].release();
 	projectVK.release();
 }
 

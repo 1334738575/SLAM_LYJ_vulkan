@@ -126,6 +126,8 @@ public:
         const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
         float* camParams, const int w, const int h);
 
+    uint32_t getQueueCount() const;
+
     void project(ProjectorCacheVK& cache,
         float* Tcw,
         float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds,

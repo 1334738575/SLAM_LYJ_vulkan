@@ -13,6 +13,16 @@ namespace {
         }
     }
 
+    uint32_t getAvailableProjectorQueueCount()
+    {
+        auto* lyjVK = GetLYJVKInstance();
+        const uint32_t computeCount = static_cast<uint32_t>(lyjVK->m_computeQueues.size());
+        const uint32_t graphicCount = static_cast<uint32_t>(lyjVK->m_graphicQueues.size());
+        if (computeCount == 0 || graphicCount == 0)
+            return 0;
+        return std::min(computeCount, graphicCount);
+    }
+
     void buildProjectorCache(ProjectorVK& projector, ProjectorCacheVK& cache)
     {
         static std::string vulkanHomePath(VULKAN_LYJ_HOME_PATH);
@@ -426,6 +436,11 @@ bool ProjectorVK::create(const float* Pws, const unsigned int _PSize,
     fnsBuffer->releaseBufferCopy();
     indBuffer->releaseBufferCopy();
     return true;
+}
+
+uint32_t ProjectorVK::getQueueCount() const
+{
+    return getAvailableProjectorQueueCount();
 }
 
 void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, unsigned int* fIds,
