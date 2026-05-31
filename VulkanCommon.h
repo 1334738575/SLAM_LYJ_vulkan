@@ -80,7 +80,7 @@ public:
 	VKInstance(const VKInstance&) = delete;
 	VKInstance& operator=(const VKInstance&) = delete;
 
-	//µ¥Àý
+	//????
 	static VKInstance* GetVKInstance()
 	{
 		static VKInstance instance;
@@ -89,12 +89,13 @@ public:
 	//inline void pollEvents() { glfwPollEvents(); };
 
 	bool isInited();
-	VkResult init(bool _bGlfw=false, GLFWwindow* _windows=nullptr, bool _bValid=false);
+	VkResult init(bool _bGlfw = false, GLFWwindow* _windows = nullptr, bool _bValid = false);
 	void clean();
 
 	VkQueue getGraphicQueue(int _i);
 	VkQueue getPresentQueue(int _i);
 	VkQueue getComputeQueue(int _i);
+	VkCommandPool getCommandPool(VkQueue queue);
 
 	uint32_t getMemoryTypeIndex(uint32_t _typeBits, VkMemoryPropertyFlags _properties);
 
@@ -129,7 +130,7 @@ private:
 		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 		createInfo.pfnUserCallback = debugCallback;
 	}
-//
+	//
 public:
 	bool m_init = false;
 	VkInstance m_instance = VK_NULL_HANDLE;
@@ -164,6 +165,8 @@ public:
 	VkCommandPool m_graphicsCommandPool;
 	VkCommandPool m_presentCommandPool;
 	VkCommandPool m_computeCommandPool;
+	std::vector<VkQueue> m_commandPoolQueues;
+	std::vector<VkCommandPool> m_commandPools;
 };
 
 
@@ -180,7 +183,7 @@ private:
 
 enum class VULKAN_LYJ_API BASETYPE
 {
-	UINT8=0,
+	UINT8 = 0,
 	INT8,
 	UINT16,
 	INT16,

@@ -31,7 +31,7 @@ VkResult VKInstance::init(bool _bGlfw, GLFWwindow* _windows, bool _bValid)
 		m_windows = glfwCreateWindow(_w, _h, "Vulkan", nullptr, nullptr);
 		};
 	if (m_bGlfw) {
-		if(_windows == nullptr)
+		if (_windows == nullptr)
 			funcCreateWinows(m_width, m_height);
 		else
 			m_windows = _windows;
@@ -66,22 +66,16 @@ VkResult VKInstance::init(bool _bGlfw, GLFWwindow* _windows, bool _bValid)
 }
 void VKInstance::clean()
 {
-	if (m_queueIndices.isCompleteGraphic()) {
-		vkDestroyCommandPool(m_device, m_graphicsCommandPool, nullptr);
+	for (auto pool : m_commandPools) {
+		if (pool)
+			vkDestroyCommandPool(m_device, pool, nullptr);
 	}
-	if (m_queueIndices.isCompletePresent() &&
-		m_queueIndices.presentFamily.value() != m_queueIndices.graphicsFamily.value()) {
-		vkDestroyCommandPool(m_device, m_presentCommandPool, nullptr);
-	}
-	if (m_queueIndices.isCompleteCompute() &&
-		(m_queueIndices.isCompletePresent() && m_queueIndices.computeFamily.value() != m_queueIndices.presentFamily.value() &&
-		m_queueIndices.computeFamily.value() != m_queueIndices.graphicsFamily.value()) ||
-		(!m_queueIndices.isCompletePresent() && m_queueIndices.isCompleteGraphic() &&
-			m_queueIndices.computeFamily.value() != m_queueIndices.graphicsFamily.value()) ||
-		(!m_queueIndices.isCompletePresent() && !m_queueIndices.isCompleteGraphic())
-		) {
-		vkDestroyCommandPool(m_device, m_computeCommandPool, nullptr);
-	}
+	m_commandPools.clear();
+	m_commandPoolQueues.clear();
+	m_graphicsCommandPool = VK_NULL_HANDLE;
+	m_presentCommandPool = VK_NULL_HANDLE;
+	m_computeCommandPool = VK_NULL_HANDLE;
+
 	vkDestroyDevice(m_device, nullptr);
 	if (m_bGlfw) {
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -111,6 +105,14 @@ VkQueue VKInstance::getComputeQueue(int _i)
 	if (_i >= m_computeQueues.size())
 		return VK_NULL_HANDLE;
 	return m_computeQueues[_i];
+}
+VkCommandPool VKInstance::getCommandPool(VkQueue queue)
+{
+	for (size_t i = 0; i < m_commandPoolQueues.size(); ++i) {
+		if (m_commandPoolQueues[i] == queue)
+			return m_commandPools[i];
+	}
+	return m_graphicsCommandPool;
 }
 uint32_t VKInstance::getMemoryTypeIndex(uint32_t _typeBits, VkMemoryPropertyFlags _properties)
 {
@@ -159,13 +161,13 @@ VkResult VKInstance::createInstance()
 				return strcmp(_v1, enabledExtension) == 0;
 				}
 			) == m_supportInstanceExtensions.end())
-			//if (std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), enabledExtension) == m_supportInstanceExtensions.end())
+				//if (std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), enabledExtension) == m_supportInstanceExtensions.end())
 				std::cerr << "Enabled instance extension \"" << enabledExtension << "\" is not present at instance level\n";
 			m_enableInstanceExtensions.push_back(enabledExtension);
 		}
 	}
 	//if (m_bValid || std::find(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME) != m_supportInstanceExtensions.end()) {
-	if (m_bValid || 
+	if (m_bValid ||
 		std::find_if(m_supportInstanceExtensions.begin(), m_supportInstanceExtensions.end(), [&](const char* _v) {
 			return strcmp(_v, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0;
 			}) != m_supportInstanceExtensions.end()) {
@@ -218,7 +220,7 @@ VkResult VKInstance::createPhysicalDevice()
 	auto createSurface = [&](VkInstance _instance, GLFWwindow* _windows)->VkResult {
 		return glfwCreateWindowSurface(_instance, _windows, nullptr, &m_surface);
 		};
-	auto funcFindQueueFamilies = [](VkPhysicalDevice device, std::vector<VkQueueFamilyProperties>& queueFamilies, VkSurfaceKHR surface=nullptr) -> QueueFamilyIndices {
+	auto funcFindQueueFamilies = [](VkPhysicalDevice device, std::vector<VkQueueFamilyProperties>& queueFamilies, VkSurfaceKHR surface = nullptr) -> QueueFamilyIndices {
 		QueueFamilyIndices queueIndices;
 		uint32_t queueFamilyCnt = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCnt, nullptr);
@@ -228,9 +230,9 @@ VkResult VKInstance::createPhysicalDevice()
 		int i = 0;
 		VkBool32 presentSupport = false;
 		for (const auto& queueFamily : queueFamilies) {
-			if ( (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !queueIndices.isCompleteGraphic())
+			if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !queueIndices.isCompleteGraphic())
 				queueIndices.graphicsFamily = i;
-			if ( (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && !queueIndices.isCompleteCompute())
+			if ((queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && !queueIndices.isCompleteCompute())
 				queueIndices.computeFamily = i;
 			if (queueIndices.isCompleteGraphic() && queueIndices.isCompleteGraphic())
 				break;
@@ -291,7 +293,7 @@ VkResult VKInstance::createPhysicalDevice()
 
 		bool ret = devFeature.geometryShader\
 			&& indices.isCompleteGraphic() && indices.isCompleteCompute() &&
-			( !m_bGlfw || ( m_bGlfw && extensionsSupported && swapChainAdequate && indices.isCompletePresent()) );
+			(!m_bGlfw || (m_bGlfw && extensionsSupported && swapChainAdequate && indices.isCompletePresent()));
 
 		if (ret) {
 			m_queueFamilies = queueFamilies;
@@ -339,7 +341,7 @@ VkResult VKInstance::createPhysicalDevice()
 			}
 		}
 	}
-	if (m_physicalDevice == VK_NULL_HANDLE) 
+	if (m_physicalDevice == VK_NULL_HANDLE)
 		return VK_ERROR_INITIALIZATION_FAILED;
 	return VK_SUCCESS;
 }
@@ -383,7 +385,7 @@ VkResult VKInstance::createDeviceAndQueue()
 		uint32_t fi = m_queueIndices.graphicsFamily.value();
 		int qCnt = m_queueFamilies[fi].queueCount;
 		m_graphicQueues.resize(qCnt);
-		for (int i = 0; i < qCnt; ++i) 
+		for (int i = 0; i < qCnt; ++i)
 			vkGetDeviceQueue(m_device, fi, i, &m_graphicQueues[i]);
 	}
 	if (m_queueIndices.isCompletePresent()) {
@@ -420,51 +422,56 @@ VkResult VKInstance::createCommandPool()
 	VkCommandPoolCreateInfo cmdPoolCreateInfo{};
 	cmdPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+	auto createPoolsForQueues = [&](uint32_t queueFamilyIndex, const std::vector<VkQueue>& queues, VkCommandPool& firstPool)->VkResult {
+		firstPool = VK_NULL_HANDLE;
+		for (size_t i = 0; i < queues.size(); ++i) {
+			cmdPoolCreateInfo.queueFamilyIndex = queueFamilyIndex;
+			VkCommandPool pool = VK_NULL_HANDLE;
+			VkResult ret = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &pool);
+			if (ret != VK_SUCCESS)
+				return ret;
+			m_commandPoolQueues.push_back(queues[i]);
+			m_commandPools.push_back(pool);
+			if (i == 0)
+				firstPool = pool;
+		}
+		return VK_SUCCESS;
+		};
+
 	VkResult ret = VK_SUCCESS;
 	if (m_queueIndices.isCompleteGraphic()) {
-		cmdPoolCreateInfo.queueFamilyIndex = m_queueIndices.graphicsFamily.value();
-		ret = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &m_graphicsCommandPool);
+		ret = createPoolsForQueues(m_queueIndices.graphicsFamily.value(), m_graphicQueues, m_graphicsCommandPool);
 		if (ret != VK_SUCCESS)
 			return ret;
 	}
 	if (m_queueIndices.isCompletePresent()) {
 		uint32_t fi = m_queueIndices.presentFamily.value();
-		if (fi == m_queueIndices.graphicsFamily.value()) {
-			if (ret == VK_SUCCESS)
-				m_presentCommandPool = m_graphicsCommandPool;
-			else
-				return ret;
+		if (m_queueIndices.isCompleteGraphic() && fi == m_queueIndices.graphicsFamily.value()) {
+			m_presentCommandPool = m_graphicsCommandPool;
 		}
 		else {
-			cmdPoolCreateInfo.queueFamilyIndex = m_queueIndices.presentFamily.value();
-			ret = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &m_presentCommandPool);
+			ret = createPoolsForQueues(fi, m_presentQueues, m_presentCommandPool);
 			if (ret != VK_SUCCESS)
 				return ret;
 		}
 	}
 	if (m_queueIndices.isCompleteCompute()) {
 		uint32_t fi = m_queueIndices.computeFamily.value();
-		if (fi == m_queueIndices.graphicsFamily.value()) {
-			if (ret == VK_SUCCESS)
-				m_computeCommandPool = m_graphicsCommandPool;
-			else
-				return ret;
+		if (m_queueIndices.isCompleteGraphic() && fi == m_queueIndices.graphicsFamily.value()) {
+			m_computeCommandPool = m_graphicsCommandPool;
 		}
-		else if (m_queueIndices.isCompletePresent() && m_queueIndices.presentFamily.value() == fi) {
-			if (ret == VK_SUCCESS)
-				m_computeCommandPool = m_presentCommandPool;
-			else
-				return ret;
+		else if (m_queueIndices.isCompletePresent() && fi == m_queueIndices.presentFamily.value()) {
+			m_computeCommandPool = m_presentCommandPool;
 		}
 		else {
-			cmdPoolCreateInfo.queueFamilyIndex = m_queueIndices.computeFamily.value();
-			ret = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &m_computeCommandPool);
+			ret = createPoolsForQueues(fi, m_computeQueues, m_computeCommandPool);
+			if (ret != VK_SUCCESS)
+				return ret;
 		}
 	}
 	return ret;
 }
-
-
 
 
 Abr::Abr()
@@ -485,7 +492,7 @@ VKFence::VKFence()
 }
 VKFence::~VKFence()
 {
-	if(m_fence)
+	if (m_fence)
 		vkDestroyFence(m_device, m_fence, nullptr);
 }
 inline VkFence VKFence::ptr() { return m_fence; };
@@ -504,7 +511,7 @@ VKSemaphore::VKSemaphore()
 }
 VKSemaphore::~VKSemaphore()
 {
-	if(m_semaphore)
+	if (m_semaphore)
 		vkDestroySemaphore(m_device, m_semaphore, nullptr);
 }
 inline VkSemaphore VKSemaphore::ptr() { return m_semaphore; }

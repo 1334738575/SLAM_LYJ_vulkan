@@ -8,10 +8,15 @@ NSP_VULKAN_LYJ_BEGIN
 
 namespace {
 
-	std::mutex& commandPoolMutex()
+	std::mutex& commandPoolMutex(VkCommandPool commandPool)
 	{
-		static std::mutex mutex;
-		return mutex;
+		static std::mutex mapMutex;
+		static std::unordered_map<VkCommandPool, std::shared_ptr<std::mutex>> mutexes;
+		std::lock_guard<std::mutex> lock(mapMutex);
+		auto& mutex = mutexes[commandPool];
+		if (!mutex)
+			mutex.reset(new std::mutex());
+		return *mutex;
 	}
 
 	std::mutex& queueSubmitMutex(VkQueue queue)
@@ -31,14 +36,6 @@ VKImp::VKImp(VkCommandBufferUsageFlags _cmdUsageFlag)
 	:m_usageFlag(_cmdUsageFlag)
 {
 	m_device = GetLYJVKInstance()->m_device;
-	m_commandPool = GetLYJVKInstance()->m_graphicsCommandPool;
-	VkCommandBufferAllocateInfo cmdBufferAllocateInfo{};
-	cmdBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdBufferAllocateInfo.commandPool = m_commandPool;
-	cmdBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmdBufferAllocateInfo.commandBufferCount = 1;
-	std::lock_guard<std::mutex> lock(commandPoolMutex());
-	VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdBufferAllocateInfo, &m_commandBuffer));
 }
 VKImp::~VKImp()
 {
@@ -48,6 +45,16 @@ inline void VKImp::setCmds(std::vector<VKCommandAbr*> _cmds) { m_cmds = _cmds; }
 void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSemaphores, std::vector<VkSemaphore> _signalSemaphores,
 	const VkPipelineStageFlags* _waitStageMask)
 {
+	if (m_commandBuffer == VK_NULL_HANDLE) {
+		m_commandPool = GetLYJVKInstance()->getCommandPool(_queue);
+		VkCommandBufferAllocateInfo cmdBufferAllocateInfo{};
+		cmdBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cmdBufferAllocateInfo.commandPool = m_commandPool;
+		cmdBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cmdBufferAllocateInfo.commandBufferCount = 1;
+		std::lock_guard<std::mutex> lock(commandPoolMutex(m_commandPool));
+		VK_CHECK_RESULT(vkAllocateCommandBuffers(m_device, &cmdBufferAllocateInfo, &m_commandBuffer));
+	}
 	if (m_needBuild) {
 		build();
 		m_needBuild = false;
@@ -67,14 +74,14 @@ void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSe
 void VKImp::destroy()
 {
 	if (m_commandBuffer) {
-		std::lock_guard<std::mutex> lock(commandPoolMutex());
+		std::lock_guard<std::mutex> lock(commandPoolMutex(m_commandPool));
 		vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
 		m_commandBuffer = VK_NULL_HANDLE;
 	}
 }
 bool VKImp::build()
 {
-	std::lock_guard<std::mutex> lock(commandPoolMutex());
+	std::lock_guard<std::mutex> lock(commandPoolMutex(m_commandPool));
 	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
 	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufferBeginInfo.flags = m_usageFlag;

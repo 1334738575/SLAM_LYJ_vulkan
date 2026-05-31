@@ -573,7 +573,7 @@ void testProject()
 	LYJ_VK::ProjectorVK projectVK;
 	projectVK.create(vertexs[0].data(), vn, fCenters[0].data(), fNormals[0].data(), faces[0].vId_, fn, K.data(), w, h);
 	int queueSz = projectVK.getQueueCount();
-	queueSz = 10;
+	queueSz = 4;
 	std::cout << "queue size: " << queueSz << std::endl;
 	std::vector<LYJ_VK::ProjectorCacheVK> projectCaches(queueSz);
 	for (int i = 0; i < queueSz; ++i)
