@@ -640,7 +640,7 @@ void testProject()
 					btmtmp.setVertexs(fccc);
 					COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
 				}
-				if (false)
+				if (true)
 				{
 					//std::vector<Eigen::Vector3f> PcsTmp;
 					//Eigen::Vector2d uvTmp;

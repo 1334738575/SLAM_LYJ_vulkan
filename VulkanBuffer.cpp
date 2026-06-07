@@ -109,7 +109,8 @@ void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, Vk
 void* VKBufferTrans::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
-	mapGPU2CPU(_size, 0);
+	if (!m_mapped)
+		mapGPU2CPU(VK_WHOLE_SIZE, 0);
 	return m_mapped;
 }
 VkResult VKBufferTrans::invalidateHost(VkDeviceSize size, VkDeviceSize offset)
@@ -128,6 +129,8 @@ void VKBufferTrans::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 }
 void VKBufferTrans::destroy(bool _bf, bool _mem)
 {
+	if (m_mapped)
+		unmapGPU2CPU();
 	if (m_buffer && _bf)
 	{
 		vkDestroyBuffer(m_device, m_buffer, nullptr);
@@ -214,7 +217,7 @@ void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, V
 	}
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
-	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), _size);
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
 	VKFence fence;
@@ -230,13 +233,12 @@ void* VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fenc
 		std::cout << "need queue!" << std::endl;
 		return nullptr;
 	}
-	if (m_bufferCopy)
-		m_bufferCopy->destroy();
-	m_bufferCopy.reset(new VKBufferTrans());
+	if (!m_bufferCopy)
+		m_bufferCopy.reset(new VKBufferDownload());
 	void* ret = m_bufferCopy->download(_size);
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
-	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
+	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), _size);
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
 	vkImp.run(_queue, _fence);
@@ -386,9 +388,8 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 		std::cout << "need queue!" << std::endl;
 		return nullptr;
 	}
-	if (m_bufferCopy)
-		m_bufferCopy->destroy();
-	m_bufferCopy.reset(new VKBufferTrans());
+	if (!m_bufferCopy)
+		m_bufferCopy.reset(new VKBufferDownload());
 	void* ret = m_bufferCopy->download(_size);
 
 	VkImageLayout imgLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
