@@ -590,7 +590,6 @@ void testProject()
 				std::string poseName = "D:/tmp/texture_data/RT_" + std::to_string(i) + ".txt";
 				if (!stlplus::file_exists(poseName))
 					continue;
-				std::cout << i << std::endl;
 				COMMON_LYJ::readT34(poseName, Tcw2);
 				Eigen::Matrix<float, 3, 4> T2;
 				T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
@@ -640,7 +639,7 @@ void testProject()
 					btmtmp.setVertexs(fccc);
 					COMMON_LYJ::writePLYMesh("D:/tmp/fccc.ply", btmtmp);
 				}
-				if (true)
+				if (false)
 				{
 					//std::vector<Eigen::Vector3f> PcsTmp;
 					//Eigen::Vector2d uvTmp;
@@ -674,7 +673,7 @@ void testProject()
 		};
 	COMMON_LYJ::ThreadPool thdpl(queueSz);
 	COMMON_LYJ::Timer qall;
-	thdpl.processWithId(funcProject, 0, 10);
+	thdpl.processWithId(funcProject, 0, 100);
 	auto t = qall.elapsed();
 	std::cout << "project total cost: " << t << " ms" << std::endl;
 

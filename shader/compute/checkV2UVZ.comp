@@ -25,12 +25,18 @@ layout (binding = 0) uniform UBO
 layout(binding = 1) buffer Data{
     float uvds[];
 };
-layout(binding = 2) buffer Data2{
-    float depths[];
-};
+layout(binding = 2) uniform sampler2D depthTex;
 layout(binding = 3) buffer Data3{
     uint pValids[];
 };
+
+float readDepth(uint x, uint y)
+{
+    float d = texelFetch(depthTex, ivec2(int(x), int(y)), 0).r;
+    if(d == 0.0 || d == 1.0)
+        return 3.402823466e+38;
+    return d * ubo.maxD;
+}
 
 void main()
 {
@@ -57,19 +63,19 @@ void main()
             continue;
         ui = uint(u);
         vi = uint(v);
-        ddd = depths[vi * ubo.w + ui];
+        ddd = readDepth(ui, vi);
         if((ddd != 3.402823466e+38) && (z <= (ddd + ubo.detd)) && (z >= (ddd - ubo.detd)))
         {
             pValids[i] = 1;
             continue;
         }
-        for(uint ii=vi-1;ii<=vi+1;++ii){
-            if(ii < 0 || ii >= ubo.h)
+        for(int ii=int(vi)-1;ii<=int(vi)+1;++ii){
+            if(ii < 0 || ii >= int(ubo.h))
                 continue;
-            for(uint jj=ui-1;jj<=ui+1;++jj){
-                if(jj < 0 || jj>=ubo.w)
+            for(int jj=int(ui)-1;jj<=int(ui)+1;++jj){
+                if(jj < 0 || jj >= int(ubo.w))
                     continue;
-                zPre = depths[ii * ubo.w + jj];
+                zPre = readDepth(uint(jj), uint(ii));
                 if(zPre == 3.402823466e+38)
                     continue;
                 if(ddd > zPre)

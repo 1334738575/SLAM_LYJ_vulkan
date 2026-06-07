@@ -14,7 +14,7 @@ VKPipelineAbr::~VKPipelineAbr()
 {
 	// destroy();
 }
-bool VKPipelineAbr::setBufferBinding(const int _binding, VKBufferAbr *_buffer, int _cnti)
+bool VKPipelineAbr::setBufferBinding(const int _binding, VKBufferAbr* _buffer, int _cnti)
 {
 	if (m_cnt <= 0 || _cnti >= m_cnt)
 		return false;
@@ -53,13 +53,18 @@ VkResult VKPipelineAbr::createVKDescriptorPool()
 	std::vector<VkDescriptorPoolSize> descriptorTypeCounts(descCnt);
 	for (int cnt = 0; cnt < descCnt; ++cnt)
 	{
-		const auto &bfType = m_buffers[0][cnt]->getType();
+		const auto& bfType = m_buffers[0][cnt]->getType();
 		if (bfType == VKBufferAbr::BUFFERTYPE::UNIFORM)
 		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
 		}
 		else if (bfType == VKBufferAbr::BUFFERTYPE::SAMPLER)
+		{
+			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
+		}
+		else if (bfType == VKBufferAbr::BUFFERTYPE::DEPTH)
 		{
 			descriptorTypeCounts[cnt].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorTypeCounts[cnt].descriptorCount = m_cnt;
@@ -89,7 +94,7 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 	m_layoutBindings[0].resize(descCnt);
 	for (int cnt = 0; cnt < descCnt; ++cnt)
 	{
-		const auto &bfType = m_buffers[0][cnt]->getType();
+		const auto& bfType = m_buffers[0][cnt]->getType();
 		m_layoutBindings[0][cnt].descriptorCount = 1;
 		m_layoutBindings[0][cnt].pImmutableSamplers = nullptr;
 		m_layoutBindings[0][cnt].binding = m_locations[0][cnt];
@@ -102,6 +107,11 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+		else if (bfType == VKBufferAbr::BUFFERTYPE::DEPTH)
+		{
+			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 		}
 		else if (bfType == VKBufferAbr::BUFFERTYPE::COLOR)
 		{
@@ -127,7 +137,7 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 }
 VkResult VKPipelineAbr::createVKPipelineLayout()
 {
-	std::vector<VkDescriptorSetLayout> layouts = {m_descriptorSetLayout};
+	std::vector<VkDescriptorSetLayout> layouts = { m_descriptorSetLayout };
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.pSetLayouts = layouts.data();
@@ -171,7 +181,7 @@ VkResult VKPipelineAbr::createVKPipelineCahce()
 	return vkCreatePipelineCache(m_device, &pipelineCacheCreateInfo, nullptr, &m_pipelineCache);
 }
 
-VKPipelineCompute::VKPipelineCompute(const std::string &_path) : VKPipelineAbr(1), m_path(_path)
+VKPipelineCompute::VKPipelineCompute(const std::string& _path) : VKPipelineAbr(1), m_path(_path)
 {
 	m_type = CMDTYPE::COMPUTE;
 }
@@ -179,7 +189,7 @@ VKPipelineCompute::~VKPipelineCompute()
 {
 }
 void VKPipelineCompute::setRunKernel(uint32_t _lenx, uint32_t _leny, uint32_t _lenz,
-									 uint32_t _localx, uint32_t _localy, uint32_t _localz)
+	uint32_t _localx, uint32_t _localy, uint32_t _localz)
 {
 	m_blockx = (_lenx + _localx - 1) / _localx;
 	m_blocky = (_leny + _localy - 1) / _localy;
@@ -243,7 +253,7 @@ VKFrameBuffer::VKFrameBuffer(uint32_t _width, uint32_t _height)
 VKFrameBuffer::~VKFrameBuffer()
 {
 }
-VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView> &_imageViews)
+VkResult VKFrameBuffer::create(VkRenderPass _renderPass, std::vector<VkImageView>& _imageViews)
 {
 	VkFramebufferCreateInfo framebufferInfo{};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -262,7 +272,7 @@ void VKFrameBuffer::destroy()
 		vkDestroyFramebuffer(m_device, m_frameBuffer, nullptr);
 }
 
-VKPipelineGraphics::VKPipelineGraphics(const std::string &_vertShaderPath, const std::string &_fragShaderPath, uint32_t _imageCnt)
+VKPipelineGraphics::VKPipelineGraphics(const std::string& _vertShaderPath, const std::string& _fragShaderPath, uint32_t _imageCnt)
 	: VKPipelineAbr(_imageCnt), m_vertShaderPath(_vertShaderPath), m_fragShaderPath(_fragShaderPath)
 {
 	m_type = CMDTYPE::GRAPHICS;
@@ -272,25 +282,25 @@ VKPipelineGraphics::VKPipelineGraphics(const std::string &_vertShaderPath, const
 inline VKPipelineGraphics::~VKPipelineGraphics()
 {
 }
-void VKPipelineGraphics::setVertexBuffer(VKBufferVertex *_vertexBuffer, uint32_t _verCnt, ClassResolver &_classResolver)
+void VKPipelineGraphics::setVertexBuffer(VKBufferAbr* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver)
 {
 	m_vertexBuffer = _vertexBuffer;
 	m_vertexCount = _verCnt;
 	m_classResolver = _classResolver;
 }
-void VKPipelineGraphics::setIndexBuffer(VKBufferIndex *_indexBuffer, uint32_t _indexCnt)
+void VKPipelineGraphics::setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt)
 {
 	m_indexBuffer = _indexBuffer;
 	m_indexCount = _indexCnt;
 }
-void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage> &_image)
+void VKPipelineGraphics::setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image)
 {
 	m_images[_cnti].push_back(_image);
 	m_attachLocations.push_back(_atti);
 	// if (_atti > 0)
 	//	setBufferBinding(_atti, _image.get(), _cnti);
 }
-void VKPipelineGraphics::setDepthImage(std::shared_ptr<VKBufferImage> &_depthImage)
+void VKPipelineGraphics::setDepthImage(std::shared_ptr<VKBufferImage>& _depthImage)
 {
 	m_depthImage = _depthImage;
 }
@@ -320,7 +330,7 @@ VkResult VKPipelineGraphics::createPipeline()
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	fragShaderStageInfo.module = fragShaderModule;
 	fragShaderStageInfo.pName = "main";
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -347,10 +357,10 @@ VkResult VKPipelineGraphics::createPipeline()
 	tessellationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 	pipelineCreateInfo.pTessellationState = &tessellationStateCreateInfo;
 
-	VkViewport vp{0.f, 0.f, float(m_extent.width), float(m_extent.height), 0.f, 1.f};
+	VkViewport vp{ 0.f, 0.f, float(m_extent.width), float(m_extent.height), 0.f, 1.f };
 	m_viewports.push_back(vp);
-	VkOffset2D of2d{0, 0};
-	VkRect2D sr{of2d, m_extent};
+	VkOffset2D of2d{ 0, 0 };
+	VkRect2D sr{ of2d, m_extent };
 	m_scissors.push_back(sr);
 	VkPipelineViewportStateCreateInfo viewportStateCreateInfo{};
 	viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -547,12 +557,12 @@ void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 		{
 			m_clearColors[i] = VkClearValue{};
 			// 取决于depthStencilStateCreateInfo深度比较方式，保留小值时，只能使用1.0f，反之只能使用0.0f
-			m_clearColors[i].depthStencil = {1.0f, 0};
+			m_clearColors[i].depthStencil = { 1.0f, 0 };
 		}
 		else
 		{
 			m_clearColors[i] = VkClearValue{};
-			m_clearColors[i].color = {0.f, 0.f, 0.f, 0.f};
+			m_clearColors[i].color = { 0.f, 0.f, 0.f, 0.f };
 		}
 	}
 	VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -570,7 +580,7 @@ void VKPipelineGraphics::record(VkCommandBuffer _cmdBuffer)
 	vkCmdBindDescriptorSets(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[m_curId], 0, nullptr);
 	vkCmdBindPipeline(_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 	// vkCmdDraw(m_cmdBuffer, 3, 1, 0, 0);
-	VkDeviceSize offsets[1] = {0};
+	VkDeviceSize offsets[1] = { 0 };
 	vkCmdBindVertexBuffers(_cmdBuffer, 0, 1, &m_vertexBuffer->getBuffer(), offsets);
 	vkCmdBindIndexBuffer(_cmdBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(_cmdBuffer, m_indexCount, 1, 0, 0, 0);

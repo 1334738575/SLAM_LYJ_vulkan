@@ -25,16 +25,13 @@ layout (binding = 0) uniform UBO
 layout(binding = 1) buffer Data{
     float cuvds[];
 };
-layout(binding = 2) buffer Data2{
-    float depths[];
-};
-layout(binding = 3) buffer Data3{
+layout(binding = 2) buffer Data3{
     uint pValids[];
 };
-layout(binding = 4) buffer Data4{
+layout(binding = 3) buffer Data4{
     uint faces[];
 };
-layout(binding = 5) buffer Data5{
+layout(binding = 4) buffer Data5{
     uint fValids[];
 };
 

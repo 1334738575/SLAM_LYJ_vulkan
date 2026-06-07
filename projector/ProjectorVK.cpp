@@ -52,13 +52,8 @@ namespace {
         cache.comTransV->setBufferBinding(3, cache.TBuffer.get());
         cache.comTransV->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comTransV->build());
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierTransV;
-        cmdBarrierTransV.reset(new LYJ_VK::VKCommandBufferBarrier({ projector.PwsBuffer->getBuffer(), cache.TBuffer->getBuffer(), cache.uboCom->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdBarrierTransV);
         cache.impTransV.reset(new LYJ_VK::VKImp(0));
-        cache.impTransV->setCmds({ cmdBarrierTransV.get(), cache.comTransV.get() });
+        cache.impTransV->setCmds({ cache.comTransV.get() });
 
         cache.comTransF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/transformProjectF.comp.spv"));
         cache.comTransF->setBufferBinding(0, cache.uboCom.get());
@@ -67,13 +62,8 @@ namespace {
         cache.comTransF->setBufferBinding(3, cache.TBuffer.get());
         cache.comTransF->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comTransF->build());
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierTransF;
-        cmdBarrierTransF.reset(new LYJ_VK::VKCommandBufferBarrier({ projector.fcwsBuffer->getBuffer(), cache.TBuffer->getBuffer(), cache.uboCom->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdBarrierTransF);
         cache.impTransF.reset(new LYJ_VK::VKImp(0));
-        cache.impTransF->setCmds({ cmdBarrierTransF.get(), cache.comTransF.get() });
+        cache.impTransF->setCmds({ cache.comTransF.get() });
 
         cache.comTransN.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/transformN.comp.spv"));
         cache.comTransN->setBufferBinding(0, cache.uboCom.get());
@@ -82,110 +72,59 @@ namespace {
         cache.comTransN->setBufferBinding(3, cache.TBuffer.get());
         cache.comTransN->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comTransN->build());
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierTransN;
-        cmdBarrierTransN.reset(new LYJ_VK::VKCommandBufferBarrier({ projector.fnsBuffer->getBuffer(), cache.TBuffer->getBuffer(), cache.uboCom->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdBarrierTransN);
         cache.impTransN.reset(new LYJ_VK::VKImp(0));
-        cache.impTransN->setCmds({ cmdBarrierTransN.get(), cache.comTransN.get() });
+        cache.impTransN->setCmds({ cache.comTransN.get() });
 
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdTransUVZSrc;
-        cmdTransUVZSrc.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvPsBuffer->getBuffer() },
-            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT));
-        cache.cmdBars.push_back(cmdTransUVZSrc);
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdTransUVZDst;
-        cmdTransUVZDst.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.verBuffer->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT));
-        cache.cmdBars.push_back(cmdTransUVZDst);
-        cache.cmdTransferUVZ.reset(new LYJ_VK::VKCommandTransfer(cache.uvPsBuffer->getBuffer(), cache.verBuffer->getBuffer(), cache.PBufferSize));
+        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierUVZToVertex;
+        cmdBarrierUVZToVertex.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvPsBuffer->getBuffer() },
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
+        cache.cmdBars.push_back(cmdBarrierUVZToVertex);
         cache.impTransUVZ.reset(new LYJ_VK::VKImp(0));
-        cache.impTransUVZ->setCmds({ cmdTransUVZSrc.get(), cache.cmdTransferUVZ.get(), cmdTransUVZDst.get() });
+        cache.impTransUVZ->setCmds({ cmdBarrierUVZToVertex.get() });
 
         cache.graphDepth.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "/texture/depths.vert.spv", shaderPath + "/texture/depths.frag.spv", 1));
         cache.graphDepth->setBufferBinding(0, cache.uboGraph.get());
-        cache.graphDepth->setVertexBuffer(cache.verBuffer.get(), projector.PSize, classResolver);
+        cache.graphDepth->setVertexBuffer(cache.uvPsBuffer.get(), projector.PSize, classResolver);
         cache.graphDepth->setIndexBuffer(projector.indBuffer.get(), projector.fSize * 3);
         cache.graphDepth->setImage(0, 0, cache.fIdsImgBuffer);
         cache.graphDepth->setDepthImage(cache.depthsImgBuffer);
         VK_CHECK_RESULT(cache.graphDepth->build());
-        std::shared_ptr<LYJ_VK::VKCommandImageBarrier> cmdImgBarrier;
-        cmdImgBarrier.reset(new LYJ_VK::VKCommandImageBarrier({ cache.graphDepth->getImage(0, 0)->getImage() },
-            { cache.graphDepth->getImage(0, 0)->getSubresource() },
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED));
-        cache.cmdBars.push_back(cmdImgBarrier);
         cache.impDepths.reset(new LYJ_VK::VKImp(0));
-        cache.impDepths->setCmds({ cache.graphDepth.get(), cmdImgBarrier.get() });
+        cache.impDepths->setCmds({ cache.graphDepth.get() });
 
-        std::shared_ptr<LYJ_VK::VKCommandImageBarrier> cmdTransDepthSrc;
-        cmdTransDepthSrc.reset(new LYJ_VK::VKCommandImageBarrier({ cache.graphDepth->getDepthImage()->getImage() },
-            { cache.graphDepth->getDepthImage()->getSubresource() },
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT));
-        cache.cmdBars.push_back(cmdTransDepthSrc);
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdTransDepthDst;
-        cmdTransDepthDst.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.depthsBuffer->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdTransDepthDst);
-        std::shared_ptr<LYJ_VK::VKCommandImageBarrier> cmdTransDepthDst2;
-        cmdTransDepthDst2.reset(new LYJ_VK::VKCommandImageBarrier({ cache.graphDepth->getDepthImage()->getImage() },
-            { cache.graphDepth->getDepthImage()->getSubresource() },
-            VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_TRANSFER_BIT));
-        cache.cmdBars.push_back(cmdTransDepthDst2);
-        cache.cmdTransferDepth.reset(new LYJ_VK::VKCommandTransfer(cache.graphDepth->getDepthImage()->getImage(), cache.depthsBuffer->getBuffer(),
-            VkExtent3D{ (uint32_t)projector.w_, (uint32_t)projector.h_, 1 },
-            cache.graphDepth->getDepthImage()->getSubresource()));
-        cache.impTransDepth.reset(new LYJ_VK::VKImp(0));
-        cache.impTransDepth->setCmds({ cmdTransDepthSrc.get(), cache.cmdTransferDepth.get(), cmdTransDepthDst.get(), cmdTransDepthDst2.get() });
-
-        cache.comRestriveDepth.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/restriveDepth.comp.spv"));
-        cache.comRestriveDepth->setBufferBinding(0, cache.uboCom.get());
-        cache.comRestriveDepth->setBufferBinding(1, cache.depthsBuffer.get());
-        cache.comRestriveDepth->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
-        VK_CHECK_RESULT(cache.comRestriveDepth->build());
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierRestriveDepth;
-        cmdBarrierRestriveDepth.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.depthsBuffer->getBuffer() },
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdBarrierRestriveDepth);
-        cache.impRestriveDepth.reset(new LYJ_VK::VKImp(0));
-        cache.impRestriveDepth->setCmds({ cmdBarrierRestriveDepth.get(), cache.comRestriveDepth.get() });
+        auto depthImage = cache.graphDepth->getDepthImage();
+        depthImage->getImageInfo()->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        std::shared_ptr<LYJ_VK::VKCommandImageBarrier> cmdDepthToShaderRead;
+        cmdDepthToShaderRead.reset(new LYJ_VK::VKCommandImageBarrier({ depthImage->getImage() },
+            { depthImage->getSubresource() },
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
+        cache.cmdBars.push_back(cmdDepthToShaderRead);
+        cache.impDepthToShaderRead.reset(new LYJ_VK::VKImp(0));
+        cache.impDepthToShaderRead->setCmds({ cmdDepthToShaderRead.get() });
 
         cache.comCheckV.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkV2UVZ.comp.spv"));
         cache.comCheckV->setBufferBinding(0, cache.uboCom.get());
         cache.comCheckV->setBufferBinding(1, cache.uvPsBuffer.get());
-        cache.comCheckV->setBufferBinding(2, cache.depthsBuffer.get());
+        cache.comCheckV->setBufferBinding(2, depthImage.get());
         cache.comCheckV->setBufferBinding(3, cache.PValidsBuffer.get());
         cache.comCheckV->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comCheckV->build());
-        std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierCheckV;
-        cmdBarrierCheckV.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvPsBuffer->getBuffer(), cache.depthsBuffer->getBuffer() },
-            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
-        cache.cmdBars.push_back(cmdBarrierCheckV);
         cache.impCheckV.reset(new LYJ_VK::VKImp(0));
-        cache.impCheckV->setCmds({ cmdBarrierCheckV.get(), cache.comCheckV.get() });
+        cache.impCheckV->setCmds({ cache.comCheckV.get() });
 
         cache.comCheckF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkF2UVZ.comp.spv"));
         cache.comCheckF->setBufferBinding(0, cache.uboCom.get());
         cache.comCheckF->setBufferBinding(1, cache.uvfcsBuffer.get());
-        cache.comCheckF->setBufferBinding(2, cache.depthsBuffer.get());
-        cache.comCheckF->setBufferBinding(3, cache.PValidsBuffer.get());
-        cache.comCheckF->setBufferBinding(4, projector.fsBuffer.get());
-        cache.comCheckF->setBufferBinding(5, cache.fValidsBuffer.get());
+        cache.comCheckF->setBufferBinding(2, cache.PValidsBuffer.get());
+        cache.comCheckF->setBufferBinding(3, projector.fsBuffer.get());
+        cache.comCheckF->setBufferBinding(4, cache.fValidsBuffer.get());
         cache.comCheckF->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comCheckF->build());
         std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierCheckF;
-        cmdBarrierCheckF.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvfcsBuffer->getBuffer(), cache.depthsBuffer->getBuffer(), cache.PValidsBuffer->getBuffer() },
+        cmdBarrierCheckF.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvfcsBuffer->getBuffer(), cache.PValidsBuffer->getBuffer() },
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
         cache.cmdBars.push_back(cmdBarrierCheckF);
@@ -194,15 +133,14 @@ namespace {
 
         cache.impProjectFull.reset(new LYJ_VK::VKImp(0));
         cache.impProjectFull->setCmds({
-            cmdBarrierTransV.get(), cache.comTransV.get(),
-            cmdBarrierTransN.get(), cache.comTransN.get(),
-            cmdBarrierTransF.get(), cache.comTransF.get(),
-            cmdTransUVZSrc.get(), cache.cmdTransferUVZ.get(), cmdTransUVZDst.get(),
-            cache.graphDepth.get(), cmdImgBarrier.get(),
-            cmdTransDepthSrc.get(), cache.cmdTransferDepth.get(), cmdTransDepthDst.get(), cmdTransDepthDst2.get(),
-            cmdBarrierRestriveDepth.get(), cache.comRestriveDepth.get(),
-            cmdBarrierCheckV.get(), cache.comCheckV.get(),
-            cmdBarrierCheckF.get(), cache.comCheckF.get()
+            cache.comTransV.get(),
+            cache.comTransN.get(),
+            cache.comTransF.get(),
+            cmdBarrierUVZToVertex.get(),
+            cache.graphDepth.get(),
+            cmdDepthToShaderRead.get(),
+            cache.comCheckV.get(),
+            cmdBarrierCheckF.get(), cache.comCheckF.get(),
             });
 
         cache.built_ = true;
@@ -266,7 +204,6 @@ void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, in
     PBufferSize = PSize_ * 3 * sizeof(float);
     fBufferSize = fSize_ * 3 * sizeof(uint32_t);
     fIdsBufferSize = w_ * h_ * sizeof(uint32_t);
-    depthsBufferSize = w_ * h_ * sizeof(float);
     PValidsBufferSize = PSize_ * sizeof(uint32_t);
     fValidsBufferSize = fSize_ * sizeof(uint32_t);
 
@@ -286,11 +223,7 @@ void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, in
     fncsBuffer->resize(fBufferSize);
     uvfcsBuffer.reset(new LYJ_VK::VKBufferCompute());
     uvfcsBuffer->resize(fBufferSize);
-    verBuffer.reset(new LYJ_VK::VKBufferVertex());
-    verBuffer->resize(PBufferSize);
 
-    depthsBuffer.reset(new LYJ_VK::VKBufferCompute());
-    depthsBuffer->resize(depthsBufferSize);
     PValidsBuffer.reset(new LYJ_VK::VKBufferCompute());
     PValidsBuffer->resize(PValidsBufferSize);
     fValidsBuffer.reset(new LYJ_VK::VKBufferCompute());
@@ -302,7 +235,7 @@ void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, in
 
 void ProjectorCacheVK::release()
 {
-    if (depthsBuffer) depthsBuffer->releaseBufferCopy();
+    if (depthsImgBuffer) depthsImgBuffer->releaseBufferCopy();
     if (fIdsImgBuffer) fIdsImgBuffer->releaseBufferCopy();
     if (PValidsBuffer) PValidsBuffer->releaseBufferCopy();
     if (fValidsBuffer) fValidsBuffer->releaseBufferCopy();
@@ -314,8 +247,7 @@ void ProjectorCacheVK::release()
     destroyPtr(impTransN);
     destroyPtr(impTransUVZ);
     destroyPtr(impDepths);
-    destroyPtr(impTransDepth);
-    destroyPtr(impRestriveDepth);
+    destroyPtr(impDepthToShaderRead);
     destroyPtr(impCheckV);
     destroyPtr(impCheckF);
     destroyPtr(impProjectFull);
@@ -324,25 +256,20 @@ void ProjectorCacheVK::release()
     destroyPtr(comTransF);
     destroyPtr(comTransN);
     destroyPtr(graphDepth);
-    destroyPtr(comRestriveDepth);
     destroyPtr(comCheckV);
     destroyPtr(comCheckF);
 
     destroyPtr(TBuffer);
     destroyPtr(uboCom);
     destroyPtr(uboGraph);
-    destroyPtr(verBuffer);
     destroyPtr(uvPsBuffer);
     destroyPtr(fncsBuffer);
     destroyPtr(uvfcsBuffer);
-    destroyPtr(depthsBuffer);
     destroyPtr(PValidsBuffer);
     destroyPtr(fValidsBuffer);
     destroyPtr(fIdsImgBuffer);
     destroyPtr(depthsImgBuffer);
 
-    cmdTransferUVZ.reset();
-    cmdTransferDepth.reset();
     fence_.reset();
     built_ = false;
 }
@@ -446,7 +373,6 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
         cache.TBuffer->upload(12 * sizeof(float), Tcw, cache.queue);
         cache.uboCom->upload(sizeof(LYJ_VK::UBOProjectCompute), &cache.uboComCPU_, cache.queue);
         cache.uboGraph->upload(sizeof(LYJ_VK::UBOProjectGraph), &cache.uboGraphCPU_, cache.queue);
-        cache.depthsBuffer->resetData(cache.depthsBufferSize, cache.queue);
         cache.PValidsBuffer->resetData(cache.PValidsBufferSize, cache.queue);
         cache.fValidsBuffer->resetData(cache.fValidsBufferSize, cache.queue, fence.ptr());
         fence.wait();
@@ -469,7 +395,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
             fence.reset();
         }
         {
-            LYJ_PROFILE_SCOPE("gpu uv transfer");
+            LYJ_PROFILE_SCOPE("gpu uv vertex barrier");
             cache.impTransUVZ->run(cache.queue, fence.ptr());
             fence.wait();
             fence.reset();
@@ -481,14 +407,8 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
             fence.reset();
         }
         {
-            LYJ_PROFILE_SCOPE("gpu depth transfer");
-            cache.impTransDepth->run(cache.queue, fence.ptr());
-            fence.wait();
-            fence.reset();
-        }
-        {
-            LYJ_PROFILE_SCOPE("gpu restrict depth");
-            cache.impRestriveDepth->run(cache.queue, fence.ptr());
+            LYJ_PROFILE_SCOPE("gpu depth shader read");
+            cache.impDepthToShaderRead->run(cache.queue, fence.ptr());
             fence.wait();
             fence.reset();
         }
@@ -509,7 +429,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
         LYJ_PROFILE_SCOPE("download submit/wait");
         LYJ_VK::VKFence graphicFence;
         if (depths)
-            datad = cache.depthsBuffer->download(cache.depthsBufferSize, cache.graphicQueue, fIds ? nullptr : graphicFence.ptr());
+            datad = cache.depthsImgBuffer->download(cache.uboComCPU_.w * cache.uboComCPU_.h * sizeof(float), cache.graphicQueue, fIds ? nullptr : graphicFence.ptr());
         if (fIds)
             dataf = cache.fIdsImgBuffer->download(cache.fIdsBufferSize, cache.graphicQueue, graphicFence.ptr());
         if (allVisiblePIds)
@@ -523,7 +443,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
             fence.reset();
         }
         if (datad)
-            cache.depthsBuffer->invalidateBufferCopy();
+            cache.depthsImgBuffer->invalidateBufferCopy(cache.uboComCPU_.w * cache.uboComCPU_.h * sizeof(float));
         if (dataf)
             cache.fIdsImgBuffer->invalidateBufferCopy();
         if (pvalidPtr)
@@ -534,7 +454,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
     {
         LYJ_PROFILE_SCOPE("download memcpy");
         if (datad)
-            memcpy(cache.depths_.data(), datad, cache.depthsBufferSize);
+            memcpy(cache.depths_.data(), datad, cache.uboComCPU_.w * cache.uboComCPU_.h * sizeof(float));
         if (dataf)
             memcpy(cache.fIds_.data(), dataf, cache.fIdsBufferSize);
         if (pvalidPtr)
@@ -550,10 +470,10 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
     auto copyOutputs = [&](uint64_t s, uint64_t e) {
         for (uint64_t i = s; i < e && i < sss; ++i) {
             if (depths) {
-                if (cache.depths_[i] == FLT_MAX || cache.depths_[i] == 0)
+                if (cache.depths_[i] == FLT_MAX || cache.depths_[i] == 0 || cache.depths_[i] == 1)
                     depths[i] = FLT_MAX;
                 else
-                    depths[i] = cache.depths_[i];
+                    depths[i] = cache.depths_[i] * cache.uboComCPU_.maxD;
             }
             if (fIds) {
                 if (cache.fIds_[i] == UINT_MAX || cache.fIds_[i] == 0)

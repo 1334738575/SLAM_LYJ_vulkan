@@ -16,7 +16,7 @@ public:
 	VKPipelineAbr(int _cnt);
 	~VKPipelineAbr();
 
-	bool setBufferBinding(const int _binding, VKBufferAbr* _buffer, int _cnti=0);
+	bool setBufferBinding(const int _binding, VKBufferAbr* _buffer, int _cnti = 0);
 	VkResult build();
 	virtual void destroy();
 
@@ -82,7 +82,7 @@ public:
 	VKPipelineCompute(const std::string& _path);
 	~VKPipelineCompute();
 
-	void setRunKernel(uint32_t _lenx, uint32_t _leny=1, uint32_t _lenz=1,
+	void setRunKernel(uint32_t _lenx, uint32_t _leny = 1, uint32_t _lenz = 1,
 		uint32_t _localx = 128, uint32_t _localy = 1, uint32_t _localz = 1);
 
 	// Í¨¹ý VKCommandAbr ¼Ì³Ð
@@ -137,7 +137,7 @@ public:
 	VKPipelineGraphics(const std::string& _vertShaderPath, const std::string& _fragShaderPath, uint32_t _imageCnt);
 	~VKPipelineGraphics();
 
-	void setVertexBuffer(VKBufferVertex* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
+	void setVertexBuffer(VKBufferAbr* _vertexBuffer, uint32_t _verCnt, ClassResolver& _classResolver);
 	void setIndexBuffer(VKBufferIndex* _indexBuffer, uint32_t _indexCnt);
 	void setImage(int _cnti, int _atti, std::shared_ptr<VKBufferImage>& _image);
 	void setDepthImage(std::shared_ptr<VKBufferImage>& _depthImage);

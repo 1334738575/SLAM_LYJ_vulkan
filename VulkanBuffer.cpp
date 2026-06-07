@@ -300,7 +300,7 @@ void VKBufferDevice::destroy(bool _bf, bool _mem)
 
 VKBufferCompute::VKBufferCompute()
 {
-	m_bufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	m_bufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	m_type = BUFFERTYPE::COMPUTE;
 }
 VKBufferCompute::~VKBufferCompute()
@@ -393,14 +393,32 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 	void* ret = m_bufferCopy->download(_size);
 
 	VkImageLayout imgLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkAccessFlags srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	if (m_type == BUFFERTYPE::DEPTH)
-		imgLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	{
+		if (m_imageInfo.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		{
+			imgLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			srcAccess = VK_ACCESS_SHADER_READ_BIT;
+			srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			dstStage = srcStage;
+		}
+		else
+		{
+			imgLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			srcAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			srcStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			dstStage = srcStage;
+		}
+	}
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
 		{ m_image },
 		{ m_subResourceRange },
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		srcAccess, VK_ACCESS_TRANSFER_READ_BIT,
 		imgLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBarrier2(
 		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
@@ -410,7 +428,7 @@ void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 		{ m_subResourceRange },
 		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imgLayout,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		VK_PIPELINE_STAGE_TRANSFER_BIT, dstStage);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
 		{ m_width, m_height, 1 }, m_subResourceRange);
 
@@ -465,7 +483,7 @@ void VKBufferImage::create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step
 	else if (m_type == BUFFERTYPE::SAMPLER)
 		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	else if (m_type == BUFFERTYPE::DEPTH)
-		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		m_imageUsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	m_size = m_width * m_height * m_channels * m_step;
@@ -505,7 +523,7 @@ void VKBufferImage::create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step
 
 	m_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	if (m_type == BUFFERTYPE::COLOR || m_type == BUFFERTYPE::SAMPLER)
+	if (m_type == BUFFERTYPE::COLOR || m_type == BUFFERTYPE::SAMPLER || m_type == BUFFERTYPE::DEPTH)
 	{
 		VkSamplerCreateInfo samplerCreateInfo{};
 		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -517,6 +535,7 @@ void VKBufferImage::create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step
 		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.mipLodBias = 0.f;
+		samplerCreateInfo.compareEnable = VK_FALSE;
 		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
 		samplerCreateInfo.minLod = 0.f;
 		samplerCreateInfo.maxLod = 0.f;

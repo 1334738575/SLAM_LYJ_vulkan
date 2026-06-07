@@ -59,9 +59,7 @@ public:
     std::shared_ptr<LYJ_VK::VKBufferCompute> uvPsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> fncsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> uvfcsBuffer;
-    std::shared_ptr<LYJ_VK::VKBufferVertex> verBuffer;
 
-    std::shared_ptr<LYJ_VK::VKBufferCompute> depthsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> PValidsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> fValidsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferImage> fIdsImgBuffer;
@@ -75,7 +73,6 @@ public:
     VkQueue queue;
     VkQueue graphicQueue;
     VkDeviceSize fIdsBufferSize;
-    VkDeviceSize depthsBufferSize;
     VkDeviceSize PValidsBufferSize;
     VkDeviceSize fValidsBufferSize;
 
@@ -85,10 +82,7 @@ public:
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransV;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransF;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransN;
-    std::shared_ptr<LYJ_VK::VKCommandTransfer> cmdTransferUVZ;
     std::shared_ptr<LYJ_VK::VKPipelineGraphics> graphDepth;
-    std::shared_ptr<LYJ_VK::VKCommandTransfer> cmdTransferDepth;
-    std::shared_ptr<LYJ_VK::VKPipelineCompute> comRestriveDepth;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckV;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckF;
 
@@ -98,8 +92,7 @@ public:
     std::shared_ptr<LYJ_VK::VKImp> impTransN;
     std::shared_ptr<LYJ_VK::VKImp> impTransUVZ;
     std::shared_ptr<LYJ_VK::VKImp> impDepths;
-    std::shared_ptr<LYJ_VK::VKImp> impTransDepth;
-    std::shared_ptr<LYJ_VK::VKImp> impRestriveDepth;
+    std::shared_ptr<LYJ_VK::VKImp> impDepthToShaderRead;
     std::shared_ptr<LYJ_VK::VKImp> impCheckV;
     std::shared_ptr<LYJ_VK::VKImp> impCheckF;
     std::shared_ptr<LYJ_VK::VKImp> impProjectFull;
