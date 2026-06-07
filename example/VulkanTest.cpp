@@ -573,7 +573,7 @@ void testProject()
 	LYJ_VK::ProjectorVK projectVK;
 	projectVK.create(vertexs[0].data(), vn, fCenters[0].data(), fNormals[0].data(), faces[0].vId_, fn, K.data(), w, h);
 	int queueSz = projectVK.getQueueCount();
-	queueSz = 4;
+	queueSz = 1;
 	std::cout << "queue size: " << queueSz << std::endl;
 	std::vector<LYJ_VK::ProjectorCacheVK> projectCaches(queueSz);
 	for (int i = 0; i < queueSz; ++i)
@@ -590,6 +590,7 @@ void testProject()
 				std::string poseName = "D:/tmp/texture_data/RT_" + std::to_string(i) + ".txt";
 				if (!stlplus::file_exists(poseName))
 					continue;
+				std::cout << i << std::endl;
 				COMMON_LYJ::readT34(poseName, Tcw2);
 				Eigen::Matrix<float, 3, 4> T2;
 				T2.block(0, 0, 3, 3) = Tcw2.getR().cast<float>();
@@ -673,7 +674,7 @@ void testProject()
 		};
 	COMMON_LYJ::ThreadPool thdpl(queueSz);
 	COMMON_LYJ::Timer qall;
-	thdpl.processWithId(funcProject, 0, 100);
+	thdpl.processWithId(funcProject, 0, 10);
 	auto t = qall.elapsed();
 	std::cout << "project total cost: " << t << " ms" << std::endl;
 

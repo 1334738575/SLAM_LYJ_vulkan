@@ -89,7 +89,7 @@ VKBufferTrans::VKBufferTrans()
 VKBufferTrans::~VKBufferTrans()
 {
 }
-void VKBufferTrans::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferTrans::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
@@ -97,7 +97,7 @@ void VKBufferTrans::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkFe
 	flush(_size);
 	unmapGPU2CPU();
 }
-void VKBufferTrans::download(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferTrans::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
@@ -106,11 +106,15 @@ void VKBufferTrans::download(VkDeviceSize _size, void *_data, VkQueue _queue, Vk
 	unmapGPU2CPU();
 	return;
 }
-void *VKBufferTrans::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+void* VKBufferTrans::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
 	resize(_size);
 	mapGPU2CPU(_size, 0);
 	return m_mapped;
+}
+VkResult VKBufferTrans::invalidateHost(VkDeviceSize size, VkDeviceSize offset)
+{
+	return invalidate(size, offset);
 }
 void VKBufferTrans::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
@@ -127,7 +131,7 @@ void VKBufferTrans::destroy(bool _bf, bool _mem)
 	if (m_buffer && _bf)
 	{
 		vkDestroyBuffer(m_device, m_buffer, nullptr);
-		 m_size = 0;
+		m_size = 0;
 	}
 	if (m_memory && _mem)
 	{
@@ -139,7 +143,7 @@ VkResult VKBufferTrans::mapGPU2CPU(VkDeviceSize _size, VkDeviceSize _offset)
 {
 	return vkMapMemory(m_device, m_memory, _offset, _size, 0, &m_mapped);
 }
-void VKBufferTrans::copyTo(void *_data, VkDeviceSize _size, bool _isFromCPU)
+void VKBufferTrans::copyTo(void* _data, VkDeviceSize _size, bool _isFromCPU)
 {
 	assert(m_mapped);
 	if (_isFromCPU)
@@ -156,6 +160,14 @@ void VKBufferTrans::unmapGPU2CPU()
 	}
 }
 
+VKBufferDownload::VKBufferDownload()
+{
+	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+}
+VKBufferDownload::~VKBufferDownload()
+{
+}
+
 VKBufferDevice::VKBufferDevice()
 {
 	m_memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -163,7 +175,7 @@ VKBufferDevice::VKBufferDevice()
 VKBufferDevice::~VKBufferDevice()
 {
 }
-void VKBufferDevice::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferDevice::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE)
 	{
@@ -177,19 +189,19 @@ void VKBufferDevice::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkF
 	m_bufferCopy->upload(sss, _data);
 
 	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrierSrc(
-		{m_bufferCopy->getBuffer()},
+		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
 		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrierDst(
-		{m_buffer},
+		{ m_buffer },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
 		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_buffer, m_bufferCopy->getSize());
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({&cmdBufferBarrierSrc, &cmdTransfer, &cmdBufferBarrierDst});
+	vkImp.setCmds({ &cmdBufferBarrierSrc, &cmdTransfer, &cmdBufferBarrierDst });
 	vkImp.run(_queue, _fence);
 }
-void VKBufferDevice::download(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferDevice::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE)
 	{
@@ -204,29 +216,29 @@ void VKBufferDevice::download(VkDeviceSize _size, void *_data, VkQueue _queue, V
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({&cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2});
+	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
 	VKFence fence;
 	vkImp.run(_queue, fence.ptr());
 	fence.wait();
 	m_bufferCopy->download(_size, _data);
 	return;
 }
-void *VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+void* VKBufferDevice::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE)
 	{
 		std::cout << "need queue!" << std::endl;
 		return nullptr;
 	}
-	if(m_bufferCopy)
+	if (m_bufferCopy)
 		m_bufferCopy->destroy();
 	m_bufferCopy.reset(new VKBufferTrans());
-	void *ret = m_bufferCopy->download(_size);
+	void* ret = m_bufferCopy->download(_size);
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier;
 	LYJ_VK::VKCommandMemoryBarrier cmdMemoryBarrier2;
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_buffer, m_bufferCopy->getBuffer(), m_size);
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({&cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2});
+	vkImp.setCmds({ &cmdMemoryBarrier, &cmdTransfer, &cmdMemoryBarrier2 });
 	vkImp.run(_queue, _fence);
 	return ret;
 }
@@ -239,7 +251,7 @@ void VKBufferDevice::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fenc
 	}
 	if (_size == 0 && m_size == 0)
 		return;
-	if(_size != 0)
+	if (_size != 0)
 		resize(_size);
 	VkDeviceSize sss = m_size;
 
@@ -256,6 +268,11 @@ void VKBufferDevice::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fenc
 	LYJ_VK::VKImp vkImp(0);
 	vkImp.setCmds({ &cmdBufferBarrierSrc, &cmdFiller, &cmdBufferBarrierDst });
 	vkImp.run(_queue, _fence);
+}
+void VKBufferDevice::invalidateBufferCopy(VkDeviceSize size)
+{
+	if (m_bufferCopy)
+		VK_CHECK_RESULT(m_bufferCopy->invalidateHost(size));
 }
 void VKBufferDevice::releaseBufferCopy()
 {
@@ -327,7 +344,7 @@ VKBufferImage::VKBufferImage(VkImage _image, VkImageView _imageView, uint32_t _w
 VKBufferImage::~VKBufferImage()
 {
 }
-void VKBufferImage::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferImage::upload(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE)
 	{
@@ -344,25 +361,25 @@ void VKBufferImage::upload(VkDeviceSize _size, void *_data, VkQueue _queue, VkFe
 	m_bufferCopy->upload(_size, _data);
 
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
-		{m_image},
-		{m_subResourceRange},
+		{ m_image },
+		{ m_subResourceRange },
 		0, VK_ACCESS_TRANSFER_READ_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
-		{m_image},
-		{m_subResourceRange},
+		{ m_image },
+		{ m_subResourceRange },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_bufferCopy->getBuffer(), m_image,
-										  {m_width, m_height, 1}, m_subResourceRange);
+		{ m_width, m_height, 1 }, m_subResourceRange);
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({&cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2});
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdImageBarrier2 });
 	vkImp.run(_queue, _fence);
 }
-void VKBufferImage::download(VkDeviceSize _size, void *_data, VkQueue _queue, VkFence _fence)
+void VKBufferImage::download(VkDeviceSize _size, void* _data, VkQueue _queue, VkFence _fence)
 {
 }
-void *VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
+void* VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
 	if (_queue == VK_NULL_HANDLE)
 	{
@@ -372,34 +389,39 @@ void *VKBufferImage::download(VkDeviceSize _size, VkQueue _queue, VkFence _fence
 	if (m_bufferCopy)
 		m_bufferCopy->destroy();
 	m_bufferCopy.reset(new VKBufferTrans());
-	void *ret = m_bufferCopy->download(_size);
+	void* ret = m_bufferCopy->download(_size);
 
 	VkImageLayout imgLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	if (m_type == BUFFERTYPE::DEPTH)
 		imgLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier1(
-		{m_image},
-		{m_subResourceRange},
+		{ m_image },
+		{ m_subResourceRange },
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
 		imgLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	LYJ_VK::VKCommandBufferBarrier cmdBarrier2(
-		{m_bufferCopy->getBuffer()},
+		{ m_bufferCopy->getBuffer() },
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	LYJ_VK::VKCommandImageBarrier cmdImageBarrier2(
-		{m_image},
-		{m_subResourceRange},
+		{ m_image },
+		{ m_subResourceRange },
 		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imgLayout,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	LYJ_VK::VKCommandTransfer cmdTransfer(m_image, m_bufferCopy->getBuffer(),
-										  {m_width, m_height, 1}, m_subResourceRange);
+		{ m_width, m_height, 1 }, m_subResourceRange);
 
 	LYJ_VK::VKImp vkImp(0);
-	vkImp.setCmds({&cmdImageBarrier1, &cmdTransfer, &cmdBarrier2, &cmdImageBarrier2});
+	vkImp.setCmds({ &cmdImageBarrier1, &cmdTransfer, &cmdBarrier2, &cmdImageBarrier2 });
 	vkImp.run(_queue, _fence);
 	return ret;
+}
+void VKBufferImage::invalidateBufferCopy(VkDeviceSize size)
+{
+	if (m_bufferCopy)
+		VK_CHECK_RESULT(m_bufferCopy->invalidateHost(size));
 }
 void VKBufferImage::resetData(VkDeviceSize _size, VkQueue _queue, VkFence _fence)
 {
@@ -429,7 +451,7 @@ void VKBufferImage::destroy(bool _bf, bool _mem)
 	}
 }
 void VKBufferImage::create(uint32_t _w, uint32_t _h, uint32_t _c, uint32_t _step,
-						   IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
+	IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
 {
 	m_width = _w;
 	m_height = _h;

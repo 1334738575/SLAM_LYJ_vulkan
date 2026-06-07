@@ -56,9 +56,7 @@ public:
     std::shared_ptr<VKBufferCompute> TBuffer;
     std::shared_ptr<LYJ_VK::VKBufferUniform> uboCom;
     std::shared_ptr<LYJ_VK::VKBufferUniform> uboGraph;
-    std::shared_ptr<LYJ_VK::VKBufferCompute> PcsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> uvPsBuffer;
-    std::shared_ptr<LYJ_VK::VKBufferCompute> fccsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> fncsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> uvfcsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferVertex> verBuffer;
@@ -85,9 +83,7 @@ public:
 
     //shader
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransV;
-    std::shared_ptr<LYJ_VK::VKPipelineCompute> comProV;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransF;
-    std::shared_ptr<LYJ_VK::VKPipelineCompute> comProF;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comTransN;
     std::shared_ptr<LYJ_VK::VKCommandTransfer> cmdTransferUVZ;
     std::shared_ptr<LYJ_VK::VKPipelineGraphics> graphDepth;
@@ -98,9 +94,7 @@ public:
 
     //imp
     std::shared_ptr<LYJ_VK::VKImp> impTransV;
-    std::shared_ptr<LYJ_VK::VKImp> impProV;
     std::shared_ptr<LYJ_VK::VKImp> impTransF;
-    std::shared_ptr<LYJ_VK::VKImp> impProF;
     std::shared_ptr<LYJ_VK::VKImp> impTransN;
     std::shared_ptr<LYJ_VK::VKImp> impTransUVZ;
     std::shared_ptr<LYJ_VK::VKImp> impDepths;

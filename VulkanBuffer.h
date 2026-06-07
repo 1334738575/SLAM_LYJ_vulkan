@@ -25,12 +25,12 @@ public:
 	~VKBufferAbr();
 
 	void resize(VkDeviceSize _size);
-	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence=nullptr)=0;
-	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr)=0;
+	virtual void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
+	virtual void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
 	virtual void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
-	virtual void resetData(VkDeviceSize _size=0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
-	virtual void releaseBufferCopy()=0;
-	virtual void destroy(bool _bf=true, bool _mem=true)=0;
+	virtual void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) = 0;
+	virtual void releaseBufferCopy() = 0;
+	virtual void destroy(bool _bf = true, bool _mem = true) = 0;
 	VkBuffer& getBuffer() { return m_buffer; };
 	VkDescriptorBufferInfo* getBufferInfo() { return &m_bufferInfo; };
 	VkImage& getImage() { return m_image; };
@@ -76,12 +76,13 @@ public:
 	~VKBufferTrans();
 
 	// 通过 VKBufferAbr 继承
-	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override {};
 	void destroy(bool _bf = true, bool _mem = true) override;
+	VkResult invalidateHost(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 private:
 	VkResult mapGPU2CPU(VkDeviceSize _size = VK_WHOLE_SIZE, VkDeviceSize _offset = 0);
 	void copyTo(void* _data, VkDeviceSize _size, bool _isFromoCPU);
@@ -94,6 +95,15 @@ private:
 
 
 
+class VULKAN_LYJ_API VKBufferDownload : public VKBufferTrans
+{
+public:
+	VKBufferDownload();
+	~VKBufferDownload();
+};
+
+
+
 class VULKAN_LYJ_API VKBufferDevice : public VKBufferAbr
 {
 public:
@@ -101,11 +111,12 @@ public:
 	~VKBufferDevice();
 
 	// 通过 VKBufferAbr 继承
-	void upload(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
-	void download(VkDeviceSize _size, void* _data, VkQueue _queue=VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void upload(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
+	void download(VkDeviceSize _size, void* _data, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override;
+	void invalidateBufferCopy(VkDeviceSize size = VK_WHOLE_SIZE);
 	void destroy(bool _bf = true, bool _mem = true) override;
 private:
 
@@ -187,6 +198,7 @@ public:
 	void* download(VkDeviceSize _size, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void resetData(VkDeviceSize _size = 0, VkQueue _queue = VK_NULL_HANDLE, VkFence _fence = nullptr) override;
 	void releaseBufferCopy() override;
+	void invalidateBufferCopy(VkDeviceSize size = VK_WHOLE_SIZE);
 	void destroy(bool _bf = true, bool _mem = true) override;
 protected:
 	static VkFormat getFormat(uint32_t _c, IMAGEVALUETYPE _imageValueType, BUFFERTYPE _type)
