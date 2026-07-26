@@ -1,0 +1,112 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, set = 0, binding = 0) uniform MatcherParams {
+    ivec4 sizes;
+    ivec4 options;
+    vec4 thresholdsCamera;
+    vec4 cameraImage;
+    vec4 Twc1Rows[3];
+    vec4 Twc2Rows[3];
+    vec4 Tcw2Rows[3];
+    vec4 fundamentalRows[3];
+} params;
+
+layout(std430, set = 0, binding = 1) readonly buffer Descriptors1 { uint values[]; } descs1;
+layout(std430, set = 0, binding = 2) readonly buffer Descriptors2 { uint values[]; } descs2;
+layout(std430, set = 0, binding = 3) readonly buffer CameraPoints1 { float values[]; } pcs1;
+layout(std430, set = 0, binding = 4) readonly buffer CameraPoints2 { float values[]; } pcs2;
+layout(std430, set = 0, binding = 5) writeonly buffer Matches { int values[]; } matches;
+
+vec3 point1(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs1.values[offset], pcs1.values[offset + 1], pcs1.values[offset + 2]);
+}
+
+vec3 point2(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs2.values[offset], pcs2.values[offset + 1], pcs2.values[offset + 2]);
+}
+
+vec3 transformPoint(vec4 rows[3], vec3 point)
+{
+    vec4 homogeneous = vec4(point, 1.0);
+    return vec3(dot(rows[0], homogeneous), dot(rows[1], homogeneous), dot(rows[2], homogeneous));
+}
+
+int descriptorDistance12(int index1, int index2)
+{
+    int distance = 0;
+    int offset1 = index1 * 8;
+    int offset2 = index2 * 8;
+    for (int word = 0; word < 8; ++word)
+        distance += bitCount(descs1.values[offset1 + word] ^ descs2.values[offset2 + word]);
+    return distance;
+}
+
+bool validPair(int index1, int index2)
+{
+    if (params.options.z == 0)
+        return true;
+    vec3 cameraPoint1 = point1(index1);
+    vec3 cameraPoint2 = point2(index2);
+    if (cameraPoint1.z <= 0.0 || cameraPoint2.z <= 0.0)
+        return false;
+    vec3 worldPoint1 = transformPoint(params.Twc1Rows, cameraPoint1);
+    vec3 worldPoint2 = transformPoint(params.Twc2Rows, cameraPoint2);
+    vec3 delta = worldPoint1 - worldPoint2;
+    return dot(delta, delta) <= params.thresholdsCamera.y;
+}
+
+void main()
+{
+    int index1 = int(gl_GlobalInvocationID.x);
+    if (index1 >= params.sizes.x)
+        return;
+    matches.values[index1] = -1;
+
+    int bestIndex2 = -1;
+    int bestDistance = 257;
+    int nextDistance = 257;
+    for (int index2 = 0; index2 < params.sizes.y; ++index2) {
+        if (!validPair(index1, index2))
+            continue;
+        int distance = descriptorDistance12(index1, index2);
+        if (distance < bestDistance) {
+            nextDistance = bestDistance;
+            bestDistance = distance;
+            bestIndex2 = index2;
+        }
+        else if (distance < nextDistance) {
+            nextDistance = distance;
+        }
+    }
+    if (bestIndex2 < 0 || bestDistance > params.options.y || nextDistance > 256 ||
+        float(bestDistance) >= float(nextDistance) * params.thresholdsCamera.x)
+        return;
+
+    int reverseBestIndex = -1;
+    int reverseBestDistance = 257;
+    int reverseNextDistance = 257;
+    for (int candidate1 = 0; candidate1 < params.sizes.x; ++candidate1) {
+        if (!validPair(candidate1, bestIndex2))
+            continue;
+        int distance = descriptorDistance12(candidate1, bestIndex2);
+        if (distance < reverseBestDistance) {
+            reverseNextDistance = reverseBestDistance;
+            reverseBestDistance = distance;
+            reverseBestIndex = candidate1;
+        }
+        else if (distance < reverseNextDistance) {
+            reverseNextDistance = distance;
+        }
+    }
+    if (reverseBestIndex != index1 || reverseBestDistance > params.options.y || reverseNextDistance > 256 ||
+        float(reverseBestDistance) >= float(reverseNextDistance) * params.thresholdsCamera.x)
+        return;
+
+    matches.values[index1] = bestIndex2;
+}

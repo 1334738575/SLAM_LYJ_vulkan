@@ -3,6 +3,7 @@
 
 
 #include "VulkanDefines.h"
+#include "VulkanORBMatcher.h"
 #include <stdint.h>
 #include <vector>
 
@@ -25,6 +26,19 @@ VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle,
 	std::vector<uint32_t>* faceIds = nullptr,
 	std::vector<uint32_t>* pointIds = nullptr);
 VULKAN_LYJ_API void releaseVK(ProVKHandle handle);
+
+typedef void* MatchVKHandle;
+VULKAN_LYJ_API MatchVKHandle initMatcherVK(int width, int height, const float* camera);
+VULKAN_LYJ_API void matchBFVK(MatchVKHandle handle, ORBMatcherCacheVK& cache,
+	short* matched2to1, short* matched1to2,
+	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);
+VULKAN_LYJ_API void matchFVK(MatchVKHandle handle, ORBMatcherCacheVK& cache,
+	short* matched2to1, short* matched1to2,
+	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);
+VULKAN_LYJ_API void matchProVK(MatchVKHandle handle, ORBMatcherCacheVK& cache, GridVK& grid,
+	short* matched2to1, short* matched1to2,
+	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);
+VULKAN_LYJ_API void releaseMatcherVK(MatchVKHandle handle);
 
 
 

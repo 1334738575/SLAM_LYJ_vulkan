@@ -1,0 +1,126 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, set = 0, binding = 0) uniform MatcherParams {
+    ivec4 sizes;
+    ivec4 options;
+    vec4 thresholdsCamera;
+    vec4 cameraImage;
+    vec4 Twc1Rows[3];
+    vec4 Twc2Rows[3];
+    vec4 Tcw2Rows[3];
+    vec4 fundamentalRows[3];
+} params;
+
+layout(std430, set = 0, binding = 1) readonly buffer Descriptors1 { uint values[]; } descs1;
+layout(std430, set = 0, binding = 2) readonly buffer Descriptors2 { uint values[]; } descs2;
+layout(std430, set = 0, binding = 3) readonly buffer CameraPoints1 { float values[]; } pcs1;
+layout(std430, set = 0, binding = 4) readonly buffer CameraPoints2 { float values[]; } pcs2;
+layout(std430, set = 0, binding = 5) readonly buffer WorldPoints1 { float values[]; } pws1;
+layout(std430, set = 0, binding = 6) readonly buffer CellData { int values[]; } cellData;
+layout(std430, set = 0, binding = 7) readonly buffer CellOffsets { int values[]; } cellOffsets;
+layout(std430, set = 0, binding = 8) writeonly buffer Matches { int values[]; } matches;
+
+vec3 point1(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs1.values[offset], pcs1.values[offset + 1], pcs1.values[offset + 2]);
+}
+
+vec3 point2(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs2.values[offset], pcs2.values[offset + 1], pcs2.values[offset + 2]);
+}
+
+vec3 transformPoint(vec4 rows[3], vec3 point)
+{
+    vec4 homogeneous = vec4(point, 1.0);
+    return vec3(dot(rows[0], homogeneous), dot(rows[1], homogeneous), dot(rows[2], homogeneous));
+}
+
+int descriptorDistance(int index1, int index2)
+{
+    int distance = 0;
+    int offset1 = index1 * 8;
+    int offset2 = index2 * 8;
+    for (int word = 0; word < 8; ++word)
+        distance += bitCount(descs1.values[offset1 + word] ^ descs2.values[offset2 + word]);
+    return distance;
+}
+
+bool valid3DPair(int index1, int index2)
+{
+    if (params.options.z == 0)
+        return true;
+    vec3 cameraPoint1 = point1(index1);
+    vec3 cameraPoint2 = point2(index2);
+    if (cameraPoint1.z <= 0.0 || cameraPoint2.z <= 0.0)
+        return false;
+    vec3 worldPoint1 = transformPoint(params.Twc1Rows, cameraPoint1);
+    vec3 worldPoint2 = transformPoint(params.Twc2Rows, cameraPoint2);
+    vec3 delta = worldPoint1 - worldPoint2;
+    return dot(delta, delta) <= params.thresholdsCamera.y;
+}
+
+void main()
+{
+    int index1 = int(gl_GlobalInvocationID.x);
+    if (index1 >= params.sizes.x)
+        return;
+    matches.values[index1] = -1;
+
+    int worldOffset = index1 * 4;
+    vec4 worldPoint = vec4(pws1.values[worldOffset], pws1.values[worldOffset + 1],
+        pws1.values[worldOffset + 2], pws1.values[worldOffset + 3]);
+    if (worldPoint.w == 0.0)
+        return;
+    if (params.options.z == 1 && point1(index1).z <= 0.0)
+        return;
+
+    vec3 cameraPoint = transformPoint(params.Tcw2Rows, worldPoint.xyz);
+    if (cameraPoint.z <= 0.0)
+        return;
+    float u = cameraPoint.x * params.thresholdsCamera.z / cameraPoint.z + params.cameraImage.x;
+    float v = cameraPoint.y * params.thresholdsCamera.w / cameraPoint.z + params.cameraImage.y;
+    int centerColumn = int(floor(u / float(params.options.x)));
+    int centerRow = int(floor(v / float(params.options.x)));
+    int activeWidth = min(params.sizes.z, int(ceil(params.cameraImage.z / float(params.options.x))));
+    int activeHeight = min(params.sizes.w, int(ceil(params.cameraImage.w / float(params.options.x))));
+    if (centerColumn < 0 || centerRow < 0 || centerColumn >= activeWidth || centerRow >= activeHeight)
+        return;
+
+    int bestIndex = -1;
+    int bestDistance = 257;
+    int nextDistance = 257;
+    for (int row = centerRow - 1; row <= centerRow + 1; ++row) {
+        for (int column = centerColumn - 1; column <= centerColumn + 1; ++column) {
+            if (column < 0 || row < 0 || column >= activeWidth || row >= activeHeight)
+                continue;
+            int cell = row * params.sizes.z + column;
+            int begin = clamp(cellOffsets.values[cell], 0, 8192);
+            int end = clamp(cellOffsets.values[cell + 1], begin, 8192);
+            for (int k = begin; k < end; ++k) {
+                int index2 = cellData.values[k];
+                if (index2 < 0 || index2 >= params.sizes.y || !valid3DPair(index1, index2))
+                    continue;
+                int distance = descriptorDistance(index1, index2);
+                if (distance > params.options.y)
+                    continue;
+                if (distance < bestDistance) {
+                    nextDistance = bestDistance;
+                    bestDistance = distance;
+                    bestIndex = index2;
+                }
+                else if (distance < nextDistance) {
+                    nextDistance = distance;
+                }
+            }
+        }
+    }
+
+    if (bestIndex < 0 || float(bestDistance) > float(nextDistance) * params.thresholdsCamera.x)
+        return;
+    matches.values[index1] = bestIndex;
+}
