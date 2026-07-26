@@ -58,6 +58,8 @@ public:
 		const short* featureGrid, const char* featureGridSizes,
 		const float* keypoints, const unsigned int* descriptors,
 		const float* Pcs = nullptr);
+	void upload1(int kpSize, const unsigned int* descriptors);
+	void upload2(int kpSize, const unsigned int* descriptors);
 
 	int wGrid_ = (VKORBMAXW + VKORBGRIDSOLU - 1) / VKORBGRIDSOLU;
 	int hGrid_ = (VKORBMAXH + VKORBGRIDSOLU - 1) / VKORBGRIDSOLU;
@@ -70,6 +72,8 @@ private:
 	unsigned int queueIndex_ = 0;
 	VkQueue queue_ = VK_NULL_HANDLE;
 	bool hasKps1_ = false;
+	bool hasDescs1_ = false;
+	bool hasDescs2_ = false;
 	bool hasPcs1_ = false;
 	bool hasPcs2_ = false;
 	bool hasPws1_ = false;

@@ -197,24 +197,28 @@ public:
 	ORBMatcherVK(int width, int height, const float* camera)
 		: width_(width), height_(height)
 	{
-		if (!camera || width <= 0 || height <= 0)
-			throw std::invalid_argument("invalid ORB matcher camera");
-		std::copy(camera, camera + 4, camera_.begin());
+		if (camera) {
+			if (width <= 0 || height <= 0)
+				throw std::invalid_argument("invalid ORB matcher image size");
+			std::copy(camera, camera + 4, camera_.begin());
+			hasCamera_ = true;
+		}
 		if (!ensureVulkan())
 			throw std::runtime_error("failed to initialize Vulkan for ORB matcher");
 	}
 
-	bool matchBF(ORBMatcherCacheVK& cache, int distThDesc, float nnTh, char use3D)
+	bool matchBF(ORBMatcherCacheVK& cache, int distThDesc, float nnTh, char use3D, float squareDistTh3D)
 	{
 		if (!validCommon(cache, distThDesc, nnTh, use3D, true))
 			return false;
 		buildBF(cache);
-		return run(cache, cache.matchBFImp_, makeParams(cache, distThDesc, nnTh, use3D, 0.0f));
+		return run(cache, cache.matchBFImp_, makeParams(cache, distThDesc, nnTh, use3D, squareDistTh3D));
 	}
 
 	bool matchF(ORBMatcherCacheVK& cache, int distThDesc, float nnTh, char use3D, float squareDistTh3D)
 	{
-		if (!validCommon(cache, distThDesc, nnTh, use3D, false) || !cache.hasKps1_ || !cache.hasGrid2_)
+		if (!hasCamera_ || !validCommon(cache, distThDesc, nnTh, use3D, false) ||
+			!cache.hasKps1_ || !cache.hasGrid2_)
 			return false;
 		buildF(cache);
 		return run(cache, cache.matchFImp_, makeParams(cache, distThDesc, nnTh, use3D, squareDistTh3D));
@@ -223,7 +227,8 @@ public:
 	bool matchPro(ORBMatcherCacheVK& cache, GridVK& grid, int distThDesc, float nnTh,
 		char use3D, float squareDistTh3D)
 	{
-		if (!validCommon(cache, distThDesc, nnTh, use3D, false) || !cache.hasPws1_ || !grid.uploaded_)
+		if (!hasCamera_ || !validCommon(cache, distThDesc, nnTh, use3D, false) ||
+			!cache.hasPws1_ || !grid.uploaded_)
 			return false;
 		buildPro(cache, grid);
 		return run(cache, cache.matchProImp_, makeParams(cache, distThDesc, nnTh, use3D, squareDistTh3D));
@@ -254,7 +259,8 @@ public:
 private:
 	bool validCommon(const ORBMatcherCacheVK& cache, int distThDesc, float nnTh, char use3D, bool mutual) const
 	{
-		if (cache.queue_ == VK_NULL_HANDLE || cache.kpSz1_ <= 0 || cache.kpSz2_ <= 0 ||
+		if (cache.queue_ == VK_NULL_HANDLE || !cache.hasDescs1_ || !cache.hasDescs2_ ||
+			cache.kpSz1_ <= 0 || cache.kpSz2_ <= 0 ||
 			!std::isfinite(nnTh) || nnTh <= 0.0f || nnTh >= 1.0f || distThDesc < 0 || distThDesc > 256)
 			return false;
 		if (mutual && (cache.kpSz1_ < 2 || cache.kpSz2_ < 2))
@@ -285,7 +291,8 @@ private:
 		makeTransformRows(params.Twc1Rows, cache.Twc1_);
 		makeTransformRows(params.Twc2Rows, cache.Twc2_);
 		makeTransformRows(params.Tcw2Rows, cache.Tcw2_);
-		computeFundamentalRows(params.fundamentalRows, cache.Tcw2_, cache.Twc1_, camera_.data());
+		if (hasCamera_)
+			computeFundamentalRows(params.fundamentalRows, cache.Tcw2_, cache.Twc1_, camera_.data());
 		return params;
 	}
 
@@ -367,6 +374,7 @@ private:
 
 	int width_ = 0;
 	int height_ = 0;
+	bool hasCamera_ = false;
 	std::array<float, 4> camera_{};
 };
 
@@ -485,6 +493,8 @@ void ORBMatcherCacheVK::release()
 	kpSz1_ = 0;
 	kpSz2_ = 0;
 	hasKps1_ = false;
+	hasDescs1_ = false;
+	hasDescs2_ = false;
 	hasPcs1_ = false;
 	hasPcs2_ = false;
 	hasPws1_ = false;
@@ -495,7 +505,8 @@ void ORBMatcherCacheVK::upload1(int kpSize, const float* Tcw, const float* Twc,
 	const float* keypoints, const unsigned int* descriptors,
 	const float* Pcs, const float* Pws, const char* validPws)
 {
-	kpSz1_ = descriptors ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
+	hasDescs1_ = descriptors != nullptr;
+	kpSz1_ = hasDescs1_ ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
 	copyTransform(Tcw1_, Tcw);
 	copyTransform(Twc1_, Twc);
 	hasKps1_ = keypoints != nullptr;
@@ -526,7 +537,8 @@ void ORBMatcherCacheVK::upload2(int kpSize, const float* Tcw, const float* Twc,
 	const short* featureGrid, const char* featureGridSizes,
 	const float* keypoints, const unsigned int* descriptors, const float* Pcs)
 {
-	kpSz2_ = descriptors ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
+	hasDescs2_ = descriptors != nullptr;
+	kpSz2_ = hasDescs2_ ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
 	copyTransform(Tcw2_, Tcw);
 	copyTransform(Twc2_, Twc);
 	hasPcs2_ = Pcs != nullptr;
@@ -547,6 +559,33 @@ void ORBMatcherCacheVK::upload2(int kpSize, const float* Tcw, const float* Twc,
 	}
 	if (Pcs)
 		uploadPadded(*Pcs2Buffer_, Pcs, static_cast<size_t>(kpSz2_) * 3, queue_);
+	VKFence fence;
+	uploadPadded(*descs2Buffer_, descriptors, static_cast<size_t>(kpSz2_) * 8, queue_, fence.ptr());
+	waitFence(fence);
+}
+
+void ORBMatcherCacheVK::upload1(int kpSize, const unsigned int* descriptors)
+{
+	hasDescs1_ = descriptors != nullptr;
+	hasKps1_ = false;
+	hasPcs1_ = false;
+	hasPws1_ = false;
+	kpSz1_ = hasDescs1_ ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
+	if (kpSz1_ == 0 || queue_ == VK_NULL_HANDLE)
+		return;
+	VKFence fence;
+	uploadPadded(*descs1Buffer_, descriptors, static_cast<size_t>(kpSz1_) * 8, queue_, fence.ptr());
+	waitFence(fence);
+}
+
+void ORBMatcherCacheVK::upload2(int kpSize, const unsigned int* descriptors)
+{
+	hasDescs2_ = descriptors != nullptr;
+	hasPcs2_ = false;
+	hasGrid2_ = false;
+	kpSz2_ = hasDescs2_ ? std::clamp(kpSize, 0, VKORBKPSIZE) : 0;
+	if (kpSz2_ == 0 || queue_ == VK_NULL_HANDLE)
+		return;
 	VKFence fence;
 	uploadPadded(*descs2Buffer_, descriptors, static_cast<size_t>(kpSz2_) * 8, queue_, fence.ptr());
 	waitFence(fence);
@@ -592,9 +631,8 @@ VULKAN_LYJ_API void matchBFVK(void* handle, ORBMatcherCacheVK& cache,
 	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D)
 {
 	(void)checkOrientation;
-	(void)squareDistTh3D;
 	runMatcher(handle, cache, matched2to1, matched1to2,
-		[&](ORBMatcherVK& matcher) { return matcher.matchBF(cache, distThDesc, nnTh, use3D); });
+		[&](ORBMatcherVK& matcher) { return matcher.matchBF(cache, distThDesc, nnTh, use3D, squareDistTh3D); });
 }
 
 VULKAN_LYJ_API void matchFVK(void* handle, ORBMatcherCacheVK& cache,

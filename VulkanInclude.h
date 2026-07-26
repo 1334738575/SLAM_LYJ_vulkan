@@ -28,10 +28,11 @@ VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle,
 VULKAN_LYJ_API void releaseVK(ProVKHandle handle);
 
 typedef void* MatchVKHandle;
-VULKAN_LYJ_API MatchVKHandle initMatcherVK(int width, int height, const float* camera);
+VULKAN_LYJ_API MatchVKHandle initMatcherVK(int width = 0, int height = 0, const float* camera = nullptr);
 VULKAN_LYJ_API void matchBFVK(MatchVKHandle handle, ORBMatcherCacheVK& cache,
 	short* matched2to1, short* matched1to2,
-	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);
+	int distThDesc = 64, float nnTh = 0.8f, char checkOrientation = 0,
+	char use3D = 0, float squareDistTh3D = 0.0f);
 VULKAN_LYJ_API void matchFVK(MatchVKHandle handle, ORBMatcherCacheVK& cache,
 	short* matched2to1, short* matched1to2,
 	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);

@@ -275,7 +275,7 @@ void VKGraphicTest::drawFrame()
 	LYJ_VK::VKImp impTmp(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	impTmp.setCmds({ m_cmdImgBarriers[imageIndex].get() });
 	LYJ_VK::VKFence fenceTmp;
-	impTmp.run(graphicQueue, fenceTmp.ptr());
+	impTmp.runAndWait(graphicQueue, fenceTmp.ptr());
 	fenceTmp.wait();
 	impTmp.destroy();
 	// get image in swapchain

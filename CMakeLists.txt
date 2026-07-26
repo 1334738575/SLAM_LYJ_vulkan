@@ -20,6 +20,7 @@ set(${PROJECT_NAME}_LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/Output)
 set(${PROJECT_NAME}_CMAKE_FILE)
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
 option(TEST_TEXTURE_VULKAN "test texture" OFF)
+option(TEST_ORB_MATCHER "test Vulkan ORB matching" OFF)
 
 #cmake
 if(DEFINED ${PROJECT_NAME}_CMAKE_FILE)
@@ -182,16 +183,20 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
     )
 endif()
 
-add_executable(${PROJECT_NAME}ORBMatcherSmoke example/ORBMatcherSmoke.cpp)
-target_include_directories(${PROJECT_NAME}ORBMatcherSmoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}ORBMatcherSmoke PRIVATE ${PROJECT_NAME} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
+if(TEST_ORB_MATCHER)
+    enable_testing()
+    add_executable(${PROJECT_NAME}ORBMatcherSmoke example/ORBMatcherSmoke.cpp)
+    target_include_directories(${PROJECT_NAME}ORBMatcherSmoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME}ORBMatcherSmoke PRIVATE ${PROJECT_NAME} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
+    add_test(NAME ${PROJECT_NAME}ORBMatcherSmoke COMMAND ${PROJECT_NAME}ORBMatcherSmoke)
 
-if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
-    set_target_properties(${PROJECT_NAME}ORBMatcherSmoke PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-        ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-        RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-    )
+    if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
+        set_target_properties(${PROJECT_NAME}ORBMatcherSmoke PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+            ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+            RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+        )
+    endif()
 endif()
 
 if(MSVC)
@@ -259,7 +264,7 @@ install(DIRECTORY ./
     PATTERN "*.h" # 包含所有 .h 文件
 
     # 排除指定目录（递归匹配）
-    PATTERN "build" EXCLUDE # 排除所有名为 build 的目录及内容
+    PATTERN "build*" EXCLUDE # Exclude all local CMake build directories.
     PATTERN "cmake" EXCLUDE # 排除所有名为 cmake 的目录及内容
     PATTERN "install" EXCLUDE # 排除所有名为 install 的目录及内容
     PATTERN "Lib" EXCLUDE # 排除所有名为 Lib 的目录及内容
@@ -278,7 +283,8 @@ install(DIRECTORY ./
 # 安装后删除空目录（可选）
 install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/cleanup.cmake")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/cleanup.cmake [[
-file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/include/build")
+file(GLOB VULKAN_LYJ_INSTALLED_BUILD_DIRS "${CMAKE_INSTALL_PREFIX}/include/build*")
+file(REMOVE_RECURSE ${VULKAN_LYJ_INSTALLED_BUILD_DIRS})
 file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/include/cmake")
 file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/include/install")
 file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/include/Lib")

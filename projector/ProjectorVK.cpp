@@ -578,7 +578,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
             if (useFaceIds) {
                 LYJ_VK::VKImp impSelectedDepth(0);
                 impSelectedDepth.setCmds({ cache.graphDepth.get() });
-                impSelectedDepth.run(cache.queue, fence.ptr());
+				impSelectedDepth.runAndWait(cache.queue, fence.ptr());
             }
             else {
                 cache.impDepths->run(cache.queue, fence.ptr());

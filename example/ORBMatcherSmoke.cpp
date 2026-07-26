@@ -23,9 +23,9 @@ int main()
 	std::fill(descriptors2.begin() + 16, descriptors2.end(), 0xaaaaaaaau);
 
 	LYJ_VK::ORBMatcherCacheVK cache;
-	cache.upload1(3, identity, identity, nullptr, descriptors1.data());
-	cache.upload2(3, identity, identity, nullptr, nullptr, nullptr, descriptors2.data());
-	LYJ_VK::MatchVKHandle matcher = LYJ_VK::initMatcherVK(640, 480, camera);
+	cache.upload1(3, descriptors1.data());
+	cache.upload2(3, descriptors2.data());
+	LYJ_VK::MatchVKHandle matcher = LYJ_VK::initMatcherVK();
 	if (!matcher) {
 		std::cerr << "failed to initialize Vulkan ORB matcher" << std::endl;
 		return 1;
@@ -33,7 +33,7 @@ int main()
 
 	short forward[3] = { -1, -1, -1 };
 	short reverse[3] = { -1, -1, -1 };
-	LYJ_VK::matchBFVK(matcher, cache, forward, reverse, 64, 0.8f, 0, 0, 1.0f);
+	LYJ_VK::matchBFVK(matcher, cache, forward, reverse);
 	const short expected[3] = { 1, 0, 2 };
 	for (int i = 0; i < 3; ++i) {
 		if (forward[i] != expected[i] || reverse[i] != expected[i]) {
@@ -51,6 +51,33 @@ int main()
 			LYJ_VK::releaseMatcherVK(matcher);
 			return 3;
 		}
+	}
+	const float cameraPoints1[9] = {
+		0.0f, 0.0f, 1.0f,
+		0.1f, 0.0f, 1.0f,
+		0.2f, 0.0f, 1.0f
+	};
+	const float cameraPoints2[9] = {
+		0.1f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f,
+		0.2f, 0.0f, 1.0f
+	};
+	cache.upload1(3, identity, identity, nullptr, descriptors1.data(), cameraPoints1);
+	cache.upload2(3, identity, identity, nullptr, nullptr, nullptr, descriptors2.data(), cameraPoints2);
+	LYJ_VK::matchBFVK(matcher, cache, forward, reverse, 64, 0.8f, 0, 1, 0.05f);
+	for (int i = 0; i < 3; ++i) {
+		if (forward[i] != expected[i] || reverse[i] != expected[i]) {
+			std::cerr << "unexpected 3D BF match at " << i << std::endl;
+			LYJ_VK::releaseMatcherVK(matcher);
+			return 4;
+		}
+	}
+
+	LYJ_VK::releaseMatcherVK(matcher);
+	matcher = LYJ_VK::initMatcherVK(640, 480, camera);
+	if (!matcher) {
+		std::cerr << "failed to initialize camera-aware Vulkan ORB matcher" << std::endl;
+		return 5;
 	}
 
 	const float Tcw2[12] = {
@@ -76,7 +103,7 @@ int main()
 		if (forward[i] != expected[i]) {
 			std::cerr << "unexpected epipolar match at " << i << ": " << forward[i] << std::endl;
 			LYJ_VK::releaseMatcherVK(matcher);
-			return 4;
+			return 6;
 		}
 	}
 
@@ -102,7 +129,7 @@ int main()
 		if (forward[i] != expected[i]) {
 			std::cerr << "unexpected projection match at " << i << ": " << forward[i] << std::endl;
 			LYJ_VK::releaseMatcherVK(matcher);
-			return 5;
+			return 7;
 		}
 	}
 

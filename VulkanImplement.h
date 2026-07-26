@@ -21,6 +21,7 @@ public:
 		std::vector<VkSemaphore> _waitSemaphores= std::vector<VkSemaphore>(),
 		std::vector<VkSemaphore> _signalSemaphores= std::vector<VkSemaphore>(),
 		const VkPipelineStageFlags* _waitStageMask= nullptr);
+	void runAndWait(VkQueue _queue, VkFence _fence = nullptr);
 	void destroy();
 private:
 	bool build();

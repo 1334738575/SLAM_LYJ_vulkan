@@ -39,7 +39,9 @@ VKImp::VKImp(VkCommandBufferUsageFlags _cmdUsageFlag)
 }
 VKImp::~VKImp()
 {
-	//destroy();
+	// Command buffers submitted by run() may still be in flight. Callers that
+	// own a one-shot command buffer use runAndWait(), while persistent command
+	// buffers are released explicitly by their owning cache.
 }
 inline void VKImp::setCmds(std::vector<VKCommandAbr*> _cmds) { m_cmds = _cmds; }
 void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSemaphores, std::vector<VkSemaphore> _signalSemaphores,
@@ -71,6 +73,21 @@ void VKImp::run(VkQueue _queue, VkFence _fence, std::vector<VkSemaphore> _waitSe
 	std::lock_guard<std::mutex> lock(queueSubmitMutex(_queue));
 	VK_CHECK_RESULT(vkQueueSubmit(_queue, 1, &submitInfo, _fence));
 }
+void VKImp::runAndWait(VkQueue _queue, VkFence _fence)
+{
+	if (_fence != VK_NULL_HANDLE)
+	{
+		run(_queue, _fence);
+		VK_CHECK_RESULT(vkWaitForFences(m_device, 1, &_fence, VK_TRUE, UINT64_MAX));
+	}
+	else
+	{
+		VKFence fence;
+		run(_queue, fence.ptr());
+		fence.wait();
+	}
+	destroy();
+}
 void VKImp::destroy()
 {
 	if (m_commandBuffer) {
@@ -78,6 +95,8 @@ void VKImp::destroy()
 		vkFreeCommandBuffers(m_device, m_commandPool, 1, &m_commandBuffer);
 		m_commandBuffer = VK_NULL_HANDLE;
 	}
+	m_commandPool = VK_NULL_HANDLE;
+	m_needBuild = true;
 }
 bool VKImp::build()
 {
