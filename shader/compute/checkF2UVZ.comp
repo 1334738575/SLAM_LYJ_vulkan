@@ -21,6 +21,13 @@ layout (binding = 0) uniform UBO
     float minD;
     float csTh;
     uint dStep;
+    uint projectFSize;
+    uint projectFStep;
+    uint useFaceIds;
+    uint projectPSize;
+    uint projectPStep;
+    uint usePointIds;
+    uint padding;
 }ubo;
 layout(binding = 1) buffer Data{
     float cuvds[];
@@ -33,6 +40,9 @@ layout(binding = 3) buffer Data4{
 };
 layout(binding = 4) buffer Data5{
     uint fValids[];
+};
+layout(binding = 5) buffer Data6{
+    uint pointMask[];
 };
 
 void main()
@@ -60,7 +70,12 @@ void main()
         //     continue;
         // if(depths[vi * ubo.w + vi] > (cuvds[i*3 + 2] - 1) || depths[vi * ubo.w + vi] < (cuvds[i*3 + 2] + 1))
         //     continue;
-        if(pValids[faces[3 * i + 0]] == 1 || pValids[faces[3 * i + 1]] == 1 || pValids[faces[3 * i + 2]] == 1)
+        uint p0 = faces[3 * i + 0];
+        uint p1 = faces[3 * i + 1];
+        uint p2 = faces[3 * i + 2];
+        if(ubo.usePointIds != 0 && (pointMask[p0] == 0 || pointMask[p1] == 0 || pointMask[p2] == 0))
+            continue;
+        if(pValids[p0] == 1 || pValids[p1] == 1 || pValids[p2] == 1)
             fValids[i] = 1;
     }
 }

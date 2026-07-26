@@ -121,7 +121,7 @@ VkResult VKPipelineAbr::createVKDescriptorSetLayout()
 		else if (bfType == VKBufferAbr::BUFFERTYPE::COMPUTE)
 		{
 			m_layoutBindings[0][cnt].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			m_layoutBindings[0][cnt].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		}
 		else
 		{

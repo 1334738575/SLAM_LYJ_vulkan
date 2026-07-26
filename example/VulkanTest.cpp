@@ -22,145 +22,6 @@ static std::string shaderPath = vulkanHomePath + "/shader/";
 static std::string imagePath = "D:/SLAM_LYJ/other/";
 
 
-VKComputeTest::VKComputeTest()
-{
-	init();
-}
-VKComputeTest::~VKComputeTest()
-{
-	cleanup();
-}
-bool VKComputeTest::init()
-{
-	LYJ_VK::VKInstance* lyjVK = LYJ_VK::GetLYJVKInstance();
-	if (!lyjVK->isInited())
-	{
-		if (lyjVK->init(false, nullptr, true) != VK_SUCCESS)
-		{
-			std::cout << "init vulkan fail!" << std::endl;
-			return false;
-		}
-	}
-	return true;
-}
-void VKComputeTest::run()
-{
-	LYJ_VK::VKInstance* lyjVK = LYJ_VK::GetLYJVKInstance();
-	VkDevice device = lyjVK->m_device;
-	VkQueue computeQueue = lyjVK->m_computeQueues[0];
-	VkCommandPool computeCommandPool = lyjVK->m_computeCommandPool;
-
-	// generate data
-	const int computeSize = 32;
-	const VkDeviceSize bufferSize = computeSize * sizeof(uint32_t);
-	uint32_t n = 0;
-	std::vector<uint32_t> computeInput(computeSize);
-	std::vector<uint32_t> computeOutput(computeSize);
-	std::generate(computeInput.begin(), computeInput.end(), [&n]
-		{ return n++; });
-	std::vector<uint32_t> computeInput2(computeSize);
-	std::vector<uint32_t> computeOutput2(computeSize);
-	uint32_t n2 = 5;
-	std::generate(computeInput2.begin(), computeInput2.end(), [&n2]
-		{ return n2++; });
-	const VkDeviceSize bufferSize2 = computeSize * sizeof(uint32_t);
-
-	// upload
-	m_uniBuffer.reset(new LYJ_VK::VKBufferUniform());
-	uint32_t dataSize = 32;
-	m_uniBuffer->upload(sizeof(uint32_t), &dataSize, computeQueue);
-	m_devBuffer.reset(new LYJ_VK::VKBufferCompute());
-	m_devBuffer->upload(bufferSize, computeInput.data(), computeQueue);
-	vkQueueWaitIdle(computeQueue);
-	m_devBuffer2.reset(new LYJ_VK::VKBufferCompute());
-	m_devBuffer2->upload(bufferSize2, computeInput2.data(), computeQueue);
-	m_uniBuffer2.reset(new LYJ_VK::VKBufferUniform());
-	uint32_t dataSize2 = 16;
-	m_uniBuffer2->upload(sizeof(uint32_t), &dataSize2, computeQueue);
-
-	// pipeline
-	m_com1.reset(new LYJ_VK::VKPipelineCompute("D:/testLyj/Vulkan/shader/compute/headless2.comp.spv"));
-	m_com1->setBufferBinding(0, m_uniBuffer.get());
-	m_com1->setBufferBinding(1, m_devBuffer.get());
-	m_com1->setBufferBinding(2, m_devBuffer2.get());
-	m_com1->setRunKernel(32);
-	VK_CHECK_RESULT(m_com1->build());
-	m_com2.reset(new LYJ_VK::VKPipelineCompute("D:/testLyj/Vulkan/shader/compute/headless3.comp.spv"));
-	m_com2->setBufferBinding(0, m_uniBuffer2.get());
-	m_com2->setBufferBinding(1, m_devBuffer.get());
-	m_com2->setBufferBinding(2, m_devBuffer2.get());
-	m_com2->setRunKernel(32);
-	VK_CHECK_RESULT(m_com2->build());
-	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrier(
-		{ m_devBuffer->getBuffer(), m_devBuffer2->getBuffer() },
-		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	LYJ_VK::VKCommandBufferBarrier cmdBufferBarrier2(
-		{ m_devBuffer->getBuffer(), m_devBuffer2->getBuffer() },
-		VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_MEMORY_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	LYJ_VK::VKCommandMemoryBarrier endBarrier;
-	m_imp.reset(new LYJ_VK::VKImp(0));
-	m_imp->setCmds({ &cmdBufferBarrier, m_com1.get(), &cmdBufferBarrier2, m_com2.get(), &endBarrier });
-
-	// compute
-	LYJ_VK::VKFence fence;
-	m_imp->run(computeQueue, fence.ptr());
-	fence.wait();
-	fence.reset();
-
-	// release copy buffer
-	m_devBuffer2->releaseBufferCopy();
-	m_devBuffer->releaseBufferCopy();
-
-	// download
-	// uint32_t* retPtr2 = (uint32_t*)m_devBuffer2->download(bufferSize, computeOutput2.data(), computeQueue);
-	// uint32_t* retPtr = (uint32_t*)m_devBuffer->download(bufferSize, computeOutput.data(), computeQueue);
-	uint32_t* retPtr2 = (uint32_t*)m_devBuffer2->download(bufferSize, computeQueue);
-	uint32_t* retPtr = (uint32_t*)m_devBuffer->download(bufferSize, computeQueue, fence.ptr());
-	fence.wait();
-	memcpy(computeOutput2.data(), retPtr2, bufferSize);
-	memcpy(computeOutput.data(), retPtr, bufferSize);
-	m_devBuffer2->releaseBufferCopy();
-	m_devBuffer->releaseBufferCopy();
-
-	// Output
-	std::cout << "Compute input:\n";
-	for (auto v : computeInput)
-	{
-		std::cout << v << " ";
-	}
-	std::cout << std::endl;
-	std::cout << "Compute output:\n";
-	for (auto v : computeOutput)
-	{
-		std::cout << v << " ";
-	}
-	std::cout << std::endl;
-	for (auto v : computeOutput2)
-	{
-		std::cout << v << " ";
-	}
-	std::cout << std::endl;
-}
-void VKComputeTest::cleanup()
-{
-	if (m_devBuffer)
-		m_devBuffer->destroy();
-	if (m_uniBuffer)
-		m_uniBuffer->destroy();
-	if (m_devBuffer2)
-		m_devBuffer2->destroy();
-	if (m_uniBuffer2)
-		m_uniBuffer2->destroy();
-	if (m_imp)
-		m_imp->destroy();
-	if (m_com1)
-		m_com1->destroy();
-	if (m_com2)
-		m_com2->destroy();
-}
-
 VKGraphicTest::VKGraphicTest()
 {
 	m_bPresent = false;
@@ -530,11 +391,6 @@ void testVulkanGraphic()
 	VKGraphicTest vulkan{};
 	vulkan.run();
 }
-void testVulkanCompute()
-{
-	VKComputeTest vulkan{};
-	vulkan.run();
-}
 void testProject()
 {
 	COMMON_LYJ::BaseTriMesh btm;
@@ -685,7 +541,6 @@ void testProject()
 
 int main()
 {
-	// testVulkanCompute();
 	//testVulkanGraphic();
 	testProject();
 }

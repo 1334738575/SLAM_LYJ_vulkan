@@ -8,6 +8,11 @@ layout (binding = 0) uniform UBO
     float halfW;
     float halfH;
     float maxD;
+    float csTh;
+    uint useFaceIds;
+    uint usePointIds;
+    uint padding1;
+    uint padding2;
 } ubo;
 
 out gl_PerVertex 

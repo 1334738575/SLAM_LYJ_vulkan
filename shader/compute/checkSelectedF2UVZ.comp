@@ -1,0 +1,73 @@
+#version 450
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0) uniform UBO
+{
+    uint vSize;
+    uint fSize;
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+    uint vStep;
+    uint fStep;
+    uint w;
+    uint h;
+    float detd;
+    float maxD;
+    float minD;
+    float csTh;
+    uint dStep;
+    uint projectFSize;
+    uint projectFStep;
+    uint useFaceIds;
+    uint projectPSize;
+    uint projectPStep;
+    uint usePointIds;
+    uint padding;
+} ubo;
+
+layout(binding = 1) buffer Data {
+    float cuvds[];
+};
+layout(binding = 2) buffer Data3 {
+    uint pValids[];
+};
+layout(binding = 3) buffer Data4 {
+    uint faces[];
+};
+layout(binding = 4) buffer Data5 {
+    uint fValids[];
+};
+layout(binding = 5) buffer Data6 {
+    uint faceIds[];
+};
+layout(binding = 6) buffer Data7 {
+    uint pointMask[];
+};
+
+void main()
+{
+    uint ind = gl_GlobalInvocationID.x;
+    uint projectFSize = ubo.useFaceIds != 0 ? ubo.projectFSize : ubo.fSize;
+    uint projectFStep = ubo.useFaceIds != 0 ? ubo.projectFStep : ubo.fStep;
+    if (ind * projectFStep >= projectFSize)
+        return;
+
+    for (uint i = ind * projectFStep; i < (ind + 1) * projectFStep; ++i) {
+        if (i >= projectFSize)
+            return;
+
+        uint fi = ubo.useFaceIds != 0 ? faceIds[i] : i;
+        if (fi >= ubo.fSize)
+            continue;
+
+        uint p0 = faces[fi * 3 + 0];
+        uint p1 = faces[fi * 3 + 1];
+        uint p2 = faces[fi * 3 + 2];
+        if (ubo.usePointIds != 0 && (pointMask[p0] == 0 || pointMask[p1] == 0 || pointMask[p2] == 0))
+            continue;
+        if (pValids[p0] == 1 || pValids[p1] == 1 || pValids[p2] == 1)
+            fValids[fi] = 1;
+    }
+}

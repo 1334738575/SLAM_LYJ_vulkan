@@ -1,5 +1,6 @@
 #include "ProjectorVK.h"
 
+#include <algorithm>
 #include <future>
 #include <chrono>
 
@@ -76,15 +77,19 @@ namespace {
         cache.impTransN->setCmds({ cache.comTransN.get() });
 
         std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierUVZToVertex;
-        cmdBarrierUVZToVertex.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvPsBuffer->getBuffer() },
+        cmdBarrierUVZToVertex.reset(new LYJ_VK::VKCommandBufferBarrier({ cache.uvPsBuffer->getBuffer(), cache.fncsBuffer->getBuffer() },
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT));
         cache.cmdBars.push_back(cmdBarrierUVZToVertex);
         cache.impTransUVZ.reset(new LYJ_VK::VKImp(0));
         cache.impTransUVZ->setCmds({ cmdBarrierUVZToVertex.get() });
 
         cache.graphDepth.reset(new LYJ_VK::VKPipelineGraphics(shaderPath + "/texture/depths.vert.spv", shaderPath + "/texture/depths.frag.spv", 1));
         cache.graphDepth->setBufferBinding(0, cache.uboGraph.get());
+        cache.graphDepth->setBufferBinding(1, cache.fncsBuffer.get());
+        cache.graphDepth->setBufferBinding(2, cache.selectedFaceIdsBuffer.get());
+        cache.graphDepth->setBufferBinding(3, projector.fsBuffer.get());
+        cache.graphDepth->setBufferBinding(4, cache.pointMaskBuffer.get());
         cache.graphDepth->setVertexBuffer(cache.uvPsBuffer.get(), projector.PSize, classResolver);
         cache.graphDepth->setIndexBuffer(projector.indBuffer.get(), projector.fSize * 3);
         cache.graphDepth->setImage(0, 0, cache.fIdsImgBuffer);
@@ -121,6 +126,7 @@ namespace {
         cache.comCheckF->setBufferBinding(2, cache.PValidsBuffer.get());
         cache.comCheckF->setBufferBinding(3, projector.fsBuffer.get());
         cache.comCheckF->setBufferBinding(4, cache.fValidsBuffer.get());
+        cache.comCheckF->setBufferBinding(5, cache.pointMaskBuffer.get());
         cache.comCheckF->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
         VK_CHECK_RESULT(cache.comCheckF->build());
         std::shared_ptr<LYJ_VK::VKCommandBufferBarrier> cmdBarrierCheckF;
@@ -130,6 +136,32 @@ namespace {
         cache.cmdBars.push_back(cmdBarrierCheckF);
         cache.impCheckF.reset(new LYJ_VK::VKImp(0));
         cache.impCheckF->setCmds({ cmdBarrierCheckF.get(), cache.comCheckF.get() });
+
+        cache.comCheckSelectedV.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkSelectedV2UVZ.comp.spv"));
+        cache.comCheckSelectedV->setBufferBinding(0, cache.uboCom.get());
+        cache.comCheckSelectedV->setBufferBinding(1, cache.uvPsBuffer.get());
+        cache.comCheckSelectedV->setBufferBinding(2, depthImage.get());
+        cache.comCheckSelectedV->setBufferBinding(3, cache.PValidsBuffer.get());
+        cache.comCheckSelectedV->setBufferBinding(4, projector.fsBuffer.get());
+        cache.comCheckSelectedV->setBufferBinding(5, cache.selectedFaceIdsBuffer.get());
+        cache.comCheckSelectedV->setBufferBinding(6, cache.selectedPointIdsBuffer.get());
+        cache.comCheckSelectedV->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
+        VK_CHECK_RESULT(cache.comCheckSelectedV->build());
+        cache.impCheckSelectedV.reset(new LYJ_VK::VKImp(0));
+        cache.impCheckSelectedV->setCmds({ cache.comCheckSelectedV.get() });
+
+        cache.comCheckSelectedF.reset(new LYJ_VK::VKPipelineCompute(shaderPath + "/compute/checkSelectedF2UVZ.comp.spv"));
+        cache.comCheckSelectedF->setBufferBinding(0, cache.uboCom.get());
+        cache.comCheckSelectedF->setBufferBinding(1, cache.uvfcsBuffer.get());
+        cache.comCheckSelectedF->setBufferBinding(2, cache.PValidsBuffer.get());
+        cache.comCheckSelectedF->setBufferBinding(3, projector.fsBuffer.get());
+        cache.comCheckSelectedF->setBufferBinding(4, cache.fValidsBuffer.get());
+        cache.comCheckSelectedF->setBufferBinding(5, cache.selectedFaceIdsBuffer.get());
+        cache.comCheckSelectedF->setBufferBinding(6, cache.pointMaskBuffer.get());
+        cache.comCheckSelectedF->setRunKernel(cache.kernel_, 1, 1, cache.kernel_, 1, 1);
+        VK_CHECK_RESULT(cache.comCheckSelectedF->build());
+        cache.impCheckSelectedF.reset(new LYJ_VK::VKImp(0));
+        cache.impCheckSelectedF->setCmds({ cmdBarrierCheckF.get(), cache.comCheckSelectedF.get() });
 
         cache.impProjectFull.reset(new LYJ_VK::VKImp(0));
         cache.impProjectFull->setCmds({
@@ -144,6 +176,88 @@ namespace {
             });
 
         cache.built_ = true;
+    }
+
+    bool prepareSelectedFaces(ProjectorVK& projector, ProjectorCacheVK& cache, std::vector<uint32_t>* faceIds)
+    {
+        if (faceIds == nullptr)
+            return false;
+
+        cache.selectedFaceIds_.clear();
+        cache.selectedIndices_.clear();
+        std::vector<char> used(projector.fSize, 0);
+        cache.selectedFaceIds_.reserve(std::min<size_t>(faceIds->size(), projector.fSize));
+        cache.selectedIndices_.reserve(std::min<size_t>(faceIds->size(), projector.fSize) * 3);
+
+        for (uint32_t fid : *faceIds) {
+            if (fid >= projector.fSize || used[fid])
+                continue;
+            used[fid] = 1;
+            cache.selectedFaceIds_.push_back(fid);
+            const size_t faceOffset = static_cast<size_t>(fid) * 3;
+            cache.selectedIndices_.push_back(projector.faces_[faceOffset + 0]);
+            cache.selectedIndices_.push_back(projector.faces_[faceOffset + 1]);
+            cache.selectedIndices_.push_back(projector.faces_[faceOffset + 2]);
+        }
+
+        cache.selectedIndexCount = static_cast<uint32_t>(cache.selectedIndices_.size());
+        cache.uboComCPU_.useFaceIds = 1;
+        cache.uboComCPU_.projectFSize = static_cast<uint32_t>(cache.selectedFaceIds_.size());
+        cache.uboComCPU_.projectFStep = (cache.uboComCPU_.projectFSize + cache.kernel_ - 1) / cache.kernel_;
+
+        const size_t paddedFaceCount = std::max<size_t>(16, ((cache.selectedFaceIds_.size() + 15) / 16) * 16);
+        const size_t paddedIndexCount = std::max<size_t>(16, ((cache.selectedIndices_.size() + 15) / 16) * 16);
+        std::vector<uint32_t> faceUpload(paddedFaceCount, 0);
+        std::vector<uint32_t> indexUpload(paddedIndexCount, 0);
+        std::copy(cache.selectedFaceIds_.begin(), cache.selectedFaceIds_.end(), faceUpload.begin());
+        std::copy(cache.selectedIndices_.begin(), cache.selectedIndices_.end(), indexUpload.begin());
+
+        LYJ_VK::VKFence uploadFence;
+        cache.selectedFaceIdsBuffer->upload(faceUpload.size() * sizeof(uint32_t), faceUpload.data(), cache.queue, uploadFence.ptr());
+        uploadFence.wait();
+        uploadFence.reset();
+        cache.selectedIndBuffer->upload(indexUpload.size() * sizeof(uint32_t), indexUpload.data(), cache.graphicQueue, uploadFence.ptr());
+        uploadFence.wait();
+        uploadFence.reset();
+
+        cache.graphDepth->setIndexBuffer(cache.selectedIndBuffer.get(), cache.selectedIndexCount);
+        return true;
+    }
+
+    bool prepareSelectedPoints(ProjectorVK& projector, ProjectorCacheVK& cache, std::vector<uint32_t>* pointIds)
+    {
+        if (pointIds == nullptr)
+            return false;
+
+        cache.selectedPointIds_.clear();
+        cache.pointMask_.assign(projector.PSize, 0);
+        std::vector<char> used(projector.PSize, 0);
+        cache.selectedPointIds_.reserve(std::min<size_t>(pointIds->size(), projector.PSize));
+
+        for (uint32_t pid : *pointIds) {
+            if (pid >= projector.PSize || used[pid])
+                continue;
+            used[pid] = 1;
+            cache.selectedPointIds_.push_back(pid);
+            cache.pointMask_[pid] = 1;
+        }
+
+        cache.uboComCPU_.usePointIds = 1;
+        cache.uboComCPU_.projectPSize = static_cast<uint32_t>(cache.selectedPointIds_.size());
+        cache.uboComCPU_.projectPStep = (cache.uboComCPU_.projectPSize + cache.kernel_ - 1) / cache.kernel_;
+
+        const size_t paddedPointCount = std::max<size_t>(16, ((cache.selectedPointIds_.size() + 15) / 16) * 16);
+        std::vector<uint32_t> pointUpload(paddedPointCount, 0);
+        std::copy(cache.selectedPointIds_.begin(), cache.selectedPointIds_.end(), pointUpload.begin());
+
+        LYJ_VK::VKFence uploadFence;
+        cache.selectedPointIdsBuffer->upload(pointUpload.size() * sizeof(uint32_t), pointUpload.data(), cache.queue, uploadFence.ptr());
+        uploadFence.wait();
+        uploadFence.reset();
+        cache.pointMaskBuffer->upload(cache.pointMaskBufferSize, cache.pointMask_.data(), cache.queue, uploadFence.ptr());
+        uploadFence.wait();
+        uploadFence.reset();
+        return true;
     }
 
 #define LYJ_VK_PROJECTOR_PROFILE
@@ -206,11 +320,20 @@ void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, in
     fIdsBufferSize = w_ * h_ * sizeof(uint32_t);
     PValidsBufferSize = PSize_ * sizeof(uint32_t);
     fValidsBufferSize = fSize_ * sizeof(uint32_t);
+    selectedFaceIdsBufferSize = std::max<uint32_t>(16, ((fSize_ + 15) / 16) * 16) * sizeof(uint32_t);
+    selectedPointIdsBufferSize = std::max<uint32_t>(16, ((PSize_ + 15) / 16) * 16) * sizeof(uint32_t);
+    pointMaskBufferSize = PSize_ * sizeof(uint32_t);
+    selectedIndBufferSize = std::max<uint32_t>(16, (((fSize_ * 3) + 15) / 16) * 16) * sizeof(uint32_t);
+    selectedIndexCount = 0;
 
     fIds_.assign(w_ * h_, UINT_MAX);
     depths_.assign(w_ * h_, FLT_MAX);
     PValids_.assign(PSize_, 0);
     fValids_.assign(fSize_, 0);
+    selectedFaceIds_.clear();
+    selectedIndices_.clear();
+    selectedPointIds_.clear();
+    pointMask_.assign(PSize_, 0);
 
     TBuffer.reset(new LYJ_VK::VKBufferCompute());
     TBuffer->resize(12 * sizeof(float));
@@ -228,6 +351,14 @@ void ProjectorCacheVK::init(unsigned int _PSize, unsigned int _fSize, int _w, in
     PValidsBuffer->resize(PValidsBufferSize);
     fValidsBuffer.reset(new LYJ_VK::VKBufferCompute());
     fValidsBuffer->resize(fValidsBufferSize);
+    selectedFaceIdsBuffer.reset(new LYJ_VK::VKBufferCompute());
+    selectedFaceIdsBuffer->resize(selectedFaceIdsBufferSize);
+    selectedPointIdsBuffer.reset(new LYJ_VK::VKBufferCompute());
+    selectedPointIdsBuffer->resize(selectedPointIdsBufferSize);
+    pointMaskBuffer.reset(new LYJ_VK::VKBufferCompute());
+    pointMaskBuffer->resize(pointMaskBufferSize);
+    selectedIndBuffer.reset(new LYJ_VK::VKBufferIndex());
+    selectedIndBuffer->resize(selectedIndBufferSize);
     fIdsImgBuffer.reset(new LYJ_VK::VKBufferColorImage(w_, h_, 1, 4, LYJ_VK::VKBufferImage::IMAGEVALUETYPE::UINT32));
     depthsImgBuffer.reset(new LYJ_VK::VKBufferDepthImage(w_, h_));
     built_ = false;
@@ -239,6 +370,10 @@ void ProjectorCacheVK::release()
     if (fIdsImgBuffer) fIdsImgBuffer->releaseBufferCopy();
     if (PValidsBuffer) PValidsBuffer->releaseBufferCopy();
     if (fValidsBuffer) fValidsBuffer->releaseBufferCopy();
+    if (selectedFaceIdsBuffer) selectedFaceIdsBuffer->releaseBufferCopy();
+    if (selectedPointIdsBuffer) selectedPointIdsBuffer->releaseBufferCopy();
+    if (pointMaskBuffer) pointMaskBuffer->releaseBufferCopy();
+    if (selectedIndBuffer) selectedIndBuffer->releaseBufferCopy();
 
     cmdBars.clear();
 
@@ -250,6 +385,8 @@ void ProjectorCacheVK::release()
     destroyPtr(impDepthToShaderRead);
     destroyPtr(impCheckV);
     destroyPtr(impCheckF);
+    destroyPtr(impCheckSelectedV);
+    destroyPtr(impCheckSelectedF);
     destroyPtr(impProjectFull);
 
     destroyPtr(comTransV);
@@ -258,6 +395,8 @@ void ProjectorCacheVK::release()
     destroyPtr(graphDepth);
     destroyPtr(comCheckV);
     destroyPtr(comCheckF);
+    destroyPtr(comCheckSelectedV);
+    destroyPtr(comCheckSelectedF);
 
     destroyPtr(TBuffer);
     destroyPtr(uboCom);
@@ -267,6 +406,10 @@ void ProjectorCacheVK::release()
     destroyPtr(uvfcsBuffer);
     destroyPtr(PValidsBuffer);
     destroyPtr(fValidsBuffer);
+    destroyPtr(selectedFaceIdsBuffer);
+    destroyPtr(selectedPointIdsBuffer);
+    destroyPtr(pointMaskBuffer);
+    destroyPtr(selectedIndBuffer);
     destroyPtr(fIdsImgBuffer);
     destroyPtr(depthsImgBuffer);
 
@@ -308,13 +451,26 @@ bool ProjectorVK::create(const float* Pws, const unsigned int _PSize,
     uboComCPU_.minD = 0.1f;
     uboComCPU_.csTh = 0.0f;
     uboComCPU_.dStep = (w * h) / kernel_;
+    uboComCPU_.projectFSize = fSize;
+    uboComCPU_.projectFStep = (fSize + 1023) / kernel_;
+    uboComCPU_.useFaceIds = 0;
+    uboComCPU_.projectPSize = PSize;
+    uboComCPU_.projectPStep = (PSize + 1023) / kernel_;
+    uboComCPU_.usePointIds = 0;
+    uboComCPU_.padding = 0;
 
     uboGraphCPU_.halfW = w / 2.0f;
     uboGraphCPU_.halfH = h / 2.0f;
     uboGraphCPU_.maxD = uboComCPU_.maxD;
+    uboGraphCPU_.csTh = uboComCPU_.csTh;
+    uboGraphCPU_.useFaceIds = 0;
+    uboGraphCPU_.usePointIds = 0;
+    uboGraphCPU_.padding1 = 0;
+    uboGraphCPU_.padding2 = 0;
 
     PBufferSize = uboComCPU_.vSize * 3 * sizeof(float);
     fBufferSize = uboComCPU_.fSize * 3 * sizeof(uint32_t);
+    faces_.assign(faces, faces + static_cast<size_t>(fSize) * 3);
     fence_.reset(new LYJ_VK::VKFence());
     auto& fence = *fence_;
     queue = lyjVK->getComputeQueue(0);
@@ -355,18 +511,35 @@ uint32_t ProjectorVK::getQueueCount() const
 }
 
 void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, unsigned int* fIds,
-    char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh)
+    char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh,
+    std::vector<uint32_t>* faceIds, std::vector<uint32_t>* pointIds)
 {
     LYJ_PROFILE_SCOPE("project total");
     if (!cache.built_)
         buildProjectorCache(*this, cache);
 
     auto& fence = *cache.fence_;
+    const bool useFaceIds = prepareSelectedFaces(*this, cache, faceIds);
+    const bool usePointIds = prepareSelectedPoints(*this, cache, pointIds);
     cache.uboComCPU_.minD = minD;
     cache.uboComCPU_.maxD = maxD;
     cache.uboComCPU_.csTh = csTh;
     cache.uboComCPU_.detd = detDTh;
+    if (!useFaceIds) {
+        cache.uboComCPU_.useFaceIds = 0;
+        cache.uboComCPU_.projectFSize = fSize;
+        cache.uboComCPU_.projectFStep = (fSize + cache.kernel_ - 1) / cache.kernel_;
+        cache.graphDepth->setIndexBuffer(indBuffer.get(), fSize * 3);
+    }
+    if (!usePointIds) {
+        cache.uboComCPU_.usePointIds = 0;
+        cache.uboComCPU_.projectPSize = PSize;
+        cache.uboComCPU_.projectPStep = (PSize + cache.kernel_ - 1) / cache.kernel_;
+    }
     cache.uboGraphCPU_.maxD = maxD;
+    cache.uboGraphCPU_.csTh = csTh;
+    cache.uboGraphCPU_.useFaceIds = useFaceIds ? 1 : 0;
+    cache.uboGraphCPU_.usePointIds = usePointIds ? 1 : 0;
 
     {
         LYJ_PROFILE_SCOPE("upload/reset");
@@ -379,7 +552,7 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
         fence.reset();
     }
 
-    if (cache.queue == cache.graphicQueue) {
+    if (!useFaceIds && !usePointIds && cache.queue == cache.graphicQueue) {
         LYJ_PROFILE_SCOPE("gpu full");
         cache.impProjectFull->run(cache.queue, fence.ptr());
         fence.wait();
@@ -402,7 +575,14 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
         }
         {
             LYJ_PROFILE_SCOPE("gpu depth draw");
-            cache.impDepths->run(cache.queue, fence.ptr());
+            if (useFaceIds) {
+                LYJ_VK::VKImp impSelectedDepth(0);
+                impSelectedDepth.setCmds({ cache.graphDepth.get() });
+                impSelectedDepth.run(cache.queue, fence.ptr());
+            }
+            else {
+                cache.impDepths->run(cache.queue, fence.ptr());
+            }
             fence.wait();
             fence.reset();
         }
@@ -414,8 +594,14 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
         }
         {
             LYJ_PROFILE_SCOPE("gpu check");
-            cache.impCheckV->run(cache.queue);
-            cache.impCheckF->run(cache.queue, fence.ptr());
+            if (useFaceIds || usePointIds) {
+                cache.impCheckSelectedV->run(cache.queue);
+                cache.impCheckSelectedF->run(cache.queue, fence.ptr());
+            }
+            else {
+                cache.impCheckV->run(cache.queue);
+                cache.impCheckF->run(cache.queue, fence.ptr());
+            }
             fence.wait();
             fence.reset();
         }
@@ -478,6 +664,13 @@ void ProjectorVK::project(ProjectorCacheVK& cache, float* Tcw, float* depths, un
             if (fIds) {
                 if (cache.fIds_[i] == UINT_MAX || cache.fIds_[i] == 0)
                     fIds[i] = UINT_MAX;
+                else if (useFaceIds) {
+                    const uint32_t selectedId = cache.fIds_[i] - 1;
+                    if (selectedId < cache.selectedFaceIds_.size())
+                        fIds[i] = cache.selectedFaceIds_[selectedId];
+                    else
+                        fIds[i] = UINT_MAX;
+                }
                 else
                     fIds[i] = cache.fIds_[i] - 1;
             }

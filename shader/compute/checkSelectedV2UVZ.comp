@@ -1,0 +1,137 @@
+#version 450
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0) uniform UBO
+{
+    uint vSize;
+    uint fSize;
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+    uint vStep;
+    uint fStep;
+    uint w;
+    uint h;
+    float detd;
+    float maxD;
+    float minD;
+    float csTh;
+    uint dStep;
+    uint projectFSize;
+    uint projectFStep;
+    uint useFaceIds;
+    uint projectPSize;
+    uint projectPStep;
+    uint usePointIds;
+    uint padding;
+} ubo;
+
+layout(binding = 1) buffer Data {
+    float uvds[];
+};
+layout(binding = 2) uniform sampler2D depthTex;
+layout(binding = 3) buffer Data3 {
+    uint pValids[];
+};
+layout(binding = 4) buffer Data4 {
+    uint faces[];
+};
+layout(binding = 5) buffer Data5 {
+    uint faceIds[];
+};
+layout(binding = 6) buffer Data6 {
+    uint pointIds[];
+};
+
+float readDepth(uint x, uint y)
+{
+    float d = texelFetch(depthTex, ivec2(int(x), int(y)), 0).r;
+    if (d == 0.0 || d == 1.0)
+        return 3.402823466e+38;
+    return d * ubo.maxD;
+}
+
+bool checkPoint2UVZ(uint pId)
+{
+    if (pId >= ubo.vSize)
+        return false;
+
+    float u = uvds[pId * 3 + 0];
+    float v = uvds[pId * 3 + 1];
+    if (u >= ubo.w || u < 0 || v >= ubo.h || v < 0)
+        return false;
+
+    float z = uvds[pId * 3 + 2];
+    if (z <= 0)
+        return false;
+
+    uint ui = uint(u);
+    uint vi = uint(v);
+    float ddd = readDepth(ui, vi);
+    if ((ddd != 3.402823466e+38) && (z <= (ddd + ubo.detd)) && (z >= (ddd - ubo.detd)))
+        return true;
+
+    for (int ii = int(vi) - 1; ii <= int(vi) + 1; ++ii) {
+        if (ii < 0 || ii >= int(ubo.h))
+            continue;
+        for (int jj = int(ui) - 1; jj <= int(ui) + 1; ++jj) {
+            if (jj < 0 || jj >= int(ubo.w))
+                continue;
+            float zPre = readDepth(uint(jj), uint(ii));
+            if (zPre == 3.402823466e+38)
+                continue;
+            if (ddd > zPre)
+                ddd = zPre;
+        }
+    }
+
+    if (ddd == 3.402823466e+38)
+        return false;
+    return z <= (ddd + ubo.detd) && z >= (ddd - ubo.detd);
+}
+
+void main()
+{
+    uint ind = gl_GlobalInvocationID.x;
+    if (ubo.usePointIds != 0) {
+        if (ind * ubo.projectPStep >= ubo.projectPSize)
+            return;
+
+        for (uint i = ind * ubo.projectPStep; i < (ind + 1) * ubo.projectPStep; ++i) {
+            if (i >= ubo.projectPSize)
+                return;
+
+            uint pId = pointIds[i];
+            if (pId >= ubo.vSize)
+                continue;
+
+            if (pValids[pId] == 0 && checkPoint2UVZ(pId))
+                pValids[pId] = 1;
+        }
+        return;
+    }
+
+    if (ind * ubo.projectFStep >= ubo.projectFSize)
+        return;
+
+    for (uint i = ind * ubo.projectFStep; i < (ind + 1) * ubo.projectFStep; ++i) {
+        if (i >= ubo.projectFSize)
+            return;
+
+        uint fi = ubo.useFaceIds != 0 ? faceIds[i] : i;
+        if (fi >= ubo.fSize)
+            continue;
+
+        uint p0 = faces[fi * 3 + 0];
+        uint p1 = faces[fi * 3 + 1];
+        uint p2 = faces[fi * 3 + 2];
+
+        if (pValids[p0] == 0 && checkPoint2UVZ(p0))
+            pValids[p0] = 1;
+        if (pValids[p1] == 0 && checkPoint2UVZ(p1))
+            pValids[p1] = 1;
+        if (pValids[p2] == 0 && checkPoint2UVZ(p2))
+            pValids[p2] = 1;
+    }
+}

@@ -14,27 +14,6 @@
 #include "../VulkanSwapChain.h"
 #include "../VulkanImplement.h"
 
-class VULKAN_LYJ_API VKComputeTest
-{
-public:
-	VKComputeTest();
-	~VKComputeTest();
-
-	bool init();
-	void run();
-	void cleanup();
-
-private:
-	std::shared_ptr<LYJ_VK::VKBufferUniform> m_uniBuffer = nullptr;
-	std::shared_ptr<LYJ_VK::VKBufferUniform> m_uniBuffer2 = nullptr;
-	std::shared_ptr<LYJ_VK::VKBufferCompute> m_devBuffer = nullptr;
-	std::shared_ptr<LYJ_VK::VKBufferCompute> m_devBuffer2 = nullptr;
-
-	std::shared_ptr<LYJ_VK::VKPipelineCompute> m_com1 = nullptr;
-	std::shared_ptr<LYJ_VK::VKPipelineCompute> m_com2 = nullptr;
-	std::shared_ptr<LYJ_VK::VKImp> m_imp = nullptr;
-};
-
 struct ShaderData
 {
 	glm::mat4 moduleMatrix;		// 局部坐标系转换到世界坐标系

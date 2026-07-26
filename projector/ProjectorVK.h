@@ -22,6 +22,13 @@ struct UBOProjectCompute
     float minD;
     float csTh;
     uint32_t dStep;
+    uint32_t projectFSize;
+    uint32_t projectFStep;
+    uint32_t useFaceIds;
+    uint32_t projectPSize;
+    uint32_t projectPStep;
+    uint32_t usePointIds;
+    uint32_t padding;
 };
 
 struct UBOProjectGraph
@@ -29,6 +36,11 @@ struct UBOProjectGraph
     float halfW;
     float halfH;
     float maxD;
+    float csTh;
+    uint32_t useFaceIds;
+    uint32_t usePointIds;
+    uint32_t padding1;
+    uint32_t padding2;
 };
 
 
@@ -52,6 +64,10 @@ public:
     std::vector<float> depths_;
     std::vector<uint32_t> PValids_;
     std::vector<uint32_t> fValids_;
+    std::vector<uint32_t> selectedFaceIds_;
+    std::vector<uint32_t> selectedIndices_;
+    std::vector<uint32_t> selectedPointIds_;
+    std::vector<uint32_t> pointMask_;
 
     std::shared_ptr<VKBufferCompute> TBuffer;
     std::shared_ptr<LYJ_VK::VKBufferUniform> uboCom;
@@ -62,6 +78,10 @@ public:
 
     std::shared_ptr<LYJ_VK::VKBufferCompute> PValidsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> fValidsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> selectedFaceIdsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> selectedPointIdsBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferCompute> pointMaskBuffer;
+    std::shared_ptr<LYJ_VK::VKBufferIndex> selectedIndBuffer;
     std::shared_ptr<LYJ_VK::VKBufferImage> fIdsImgBuffer;
     std::shared_ptr<LYJ_VK::VKBufferImage> depthsImgBuffer;
 
@@ -75,6 +95,11 @@ public:
     VkDeviceSize fIdsBufferSize;
     VkDeviceSize PValidsBufferSize;
     VkDeviceSize fValidsBufferSize;
+    VkDeviceSize selectedFaceIdsBufferSize;
+    VkDeviceSize selectedPointIdsBufferSize;
+    VkDeviceSize pointMaskBufferSize;
+    VkDeviceSize selectedIndBufferSize;
+    uint32_t selectedIndexCount = 0;
 
     std::vector<std::shared_ptr<VKCommandAbr>> cmdBars;
 
@@ -85,6 +110,8 @@ public:
     std::shared_ptr<LYJ_VK::VKPipelineGraphics> graphDepth;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckV;
     std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckF;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckSelectedV;
+    std::shared_ptr<LYJ_VK::VKPipelineCompute> comCheckSelectedF;
 
     //imp
     std::shared_ptr<LYJ_VK::VKImp> impTransV;
@@ -95,6 +122,8 @@ public:
     std::shared_ptr<LYJ_VK::VKImp> impDepthToShaderRead;
     std::shared_ptr<LYJ_VK::VKImp> impCheckV;
     std::shared_ptr<LYJ_VK::VKImp> impCheckF;
+    std::shared_ptr<LYJ_VK::VKImp> impCheckSelectedV;
+    std::shared_ptr<LYJ_VK::VKImp> impCheckSelectedF;
     std::shared_ptr<LYJ_VK::VKImp> impProjectFull;
 
 
@@ -118,7 +147,9 @@ public:
     void project(ProjectorCacheVK& cache,
         float* Tcw,
         float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds,
-        float minD = 0, float maxD = FLT_MAX, float csTh = 0, float detDTh = 1);
+        float minD = 0, float maxD = FLT_MAX, float csTh = 0, float detDTh = 1,
+        std::vector<uint32_t>* faceIds = nullptr,
+        std::vector<uint32_t>* pointIds = nullptr);
 
     void release();
 
@@ -136,6 +167,7 @@ public:
     std::shared_ptr<LYJ_VK::VKBufferCompute> fcwsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferCompute> fnsBuffer;
     std::shared_ptr<LYJ_VK::VKBufferIndex> indBuffer;
+    std::vector<uint32_t> faces_;
 
 private:
     LYJ_VK::VKInstance* lyjVK = nullptr;

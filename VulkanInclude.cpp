@@ -46,13 +46,13 @@ VULKAN_LYJ_API void releaseProjectorVKCache(ProVKCacheHandle cacheHandle)
 	delete cache;
 }
 
-VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle, float* Tcw, float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh)
+VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle, float* Tcw, float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds, float minD, float maxD, float csTh, float detDTh, std::vector<uint32_t>* faceIds, std::vector<uint32_t>* pointIds)
 {
 	if (!handle || !cacheHandle)
 		return;
 	ProjectorVK* pro = (ProjectorVK*)handle;
 	ProjectorCacheVK* cache = (ProjectorCacheVK*)cacheHandle;
-	pro->project(*cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, minD, maxD, csTh, detDTh);
+	pro->project(*cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, minD, maxD, csTh, detDTh, faceIds, pointIds);
 }
 
 VULKAN_LYJ_API void releaseVK(ProVKHandle handle)

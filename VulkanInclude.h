@@ -3,6 +3,8 @@
 
 
 #include "VulkanDefines.h"
+#include <stdint.h>
+#include <vector>
 
 
 NSP_VULKAN_LYJ_BEGIN
@@ -19,7 +21,9 @@ VULKAN_LYJ_API void releaseProjectorVKCache(ProVKCacheHandle cacheHandle);
 VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle,
 	float* Tcw,
 	float* depths, unsigned int* fIds, char* allVisiblePIds, char* allVisibleFIds,
-	float minD, float maxD, float csTh = 0, float detDTh = 1);
+	float minD, float maxD, float csTh = 0, float detDTh = 1,
+	std::vector<uint32_t>* faceIds = nullptr,
+	std::vector<uint32_t>* pointIds = nullptr);
 VULKAN_LYJ_API void releaseVK(ProVKHandle handle);
 
 

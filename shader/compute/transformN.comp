@@ -21,6 +21,13 @@ layout (binding = 0) uniform UBO
     float minD;
     float csTh;
     uint dStep;
+    uint projectFSize;
+    uint projectFStep;
+    uint useFaceIds;
+    uint projectPSize;
+    uint projectPStep;
+    uint usePointIds;
+    uint padding;
 }ubo;
 layout(binding = 1) buffer Data{
     float nws[];

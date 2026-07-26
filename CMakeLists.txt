@@ -167,6 +167,22 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
 endif()
 
 # ################################example##################################
+add_executable(${PROJECT_NAME}DepthSmoke example/DepthSmoke.cpp)
+target_include_directories(${PROJECT_NAME}DepthSmoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}DepthSmoke PRIVATE ${PROJECT_NAME} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES})
+
+if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
+    set_target_properties(${PROJECT_NAME}DepthSmoke PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+        ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+        RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+    )
+endif()
+
+if(MSVC)
+    set_target_properties(${PROJECT_NAME}DepthSmoke PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${${PROJECT_NAME}_BINARY_DIRS}")
+endif()
+
 add_executable(${PROJECT_NAME}Bin example/VulkanTest.cpp example/VulkanTest.h)
 target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VULKAN_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${${PROJECT_NAME}_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${OpenCV_LIBS} ${VULKAN_LIBRARIES} ${GLFW_LIBRARIES} ${${PROJECT_NAME}_LIBRARIES})
