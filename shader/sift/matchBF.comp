@@ -1,0 +1,115 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, set = 0, binding = 0) uniform MatcherParams {
+    ivec4 sizesOptions;
+    vec4 thresholds;
+    vec4 Twc1Rows[3];
+    vec4 Twc2Rows[3];
+} params;
+
+layout(std430, set = 0, binding = 1) readonly buffer Descriptors1 { float values[]; } descs1;
+layout(std430, set = 0, binding = 2) readonly buffer Descriptors2 { float values[]; } descs2;
+layout(std430, set = 0, binding = 3) readonly buffer CameraPoints1 { float values[]; } pcs1;
+layout(std430, set = 0, binding = 4) readonly buffer CameraPoints2 { float values[]; } pcs2;
+layout(std430, set = 0, binding = 5) writeonly buffer Matches { int values[]; } matches;
+
+vec3 point1(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs1.values[offset], pcs1.values[offset + 1], pcs1.values[offset + 2]);
+}
+
+vec3 point2(int index)
+{
+    int offset = index * 3;
+    return vec3(pcs2.values[offset], pcs2.values[offset + 1], pcs2.values[offset + 2]);
+}
+
+vec3 transformPoint(vec4 rows[3], vec3 point)
+{
+    vec4 homogeneous = vec4(point, 1.0);
+    return vec3(dot(rows[0], homogeneous), dot(rows[1], homogeneous), dot(rows[2], homogeneous));
+}
+
+bool validPair(int index1, int index2)
+{
+    if (params.sizesOptions.w == 0)
+        return true;
+    vec3 cameraPoint1 = point1(index1);
+    vec3 cameraPoint2 = point2(index2);
+    if (cameraPoint1.z <= 0.0 || cameraPoint2.z <= 0.0)
+        return false;
+    vec3 worldPoint1 = transformPoint(params.Twc1Rows, cameraPoint1);
+    vec3 worldPoint2 = transformPoint(params.Twc2Rows, cameraPoint2);
+    vec3 delta = worldPoint1 - worldPoint2;
+    return dot(delta, delta) <= params.thresholds.z;
+}
+
+float descriptorDot12(int index1, int index2)
+{
+    int offset1 = index1 * 128;
+    int offset2 = index2 * 128;
+    float value = 0.0;
+    for (int i = 0; i < 128; ++i)
+        value += descs1.values[offset1 + i] * descs2.values[offset2 + i];
+    return value;
+}
+
+bool passesThresholds(float bestDot, float nextBestDot)
+{
+    float bestDist = acos(clamp(bestDot, -1.0, 1.0));
+    float nextBestDist = acos(clamp(nextBestDot, -1.0, 1.0));
+    return bestDist < params.thresholds.x && bestDist < nextBestDist * params.thresholds.y;
+}
+
+void main()
+{
+    int index1 = int(gl_GlobalInvocationID.x);
+    if (index1 >= params.sizesOptions.x)
+        return;
+    matches.values[index1] = -1;
+
+    float bestDot = 0.0;
+    float nextBestDot = 0.0;
+    int bestIndex2 = -1;
+    for (int index2 = 0; index2 < params.sizesOptions.y; ++index2) {
+        if (!validPair(index1, index2))
+            continue;
+        float value = descriptorDot12(index1, index2);
+        if (value > bestDot) {
+            nextBestDot = bestDot;
+            bestDot = value;
+            bestIndex2 = index2;
+        }
+        else if (value > nextBestDot) {
+            nextBestDot = value;
+        }
+    }
+    if (bestIndex2 < 0 || !passesThresholds(bestDot, nextBestDot))
+        return;
+
+    if (params.sizesOptions.z != 0) {
+        float reverseBestDot = 0.0;
+        float reverseNextBestDot = 0.0;
+        int reverseBestIndex = -1;
+        for (int candidate1 = 0; candidate1 < params.sizesOptions.x; ++candidate1) {
+            if (!validPair(candidate1, bestIndex2))
+                continue;
+            float value = descriptorDot12(candidate1, bestIndex2);
+            if (value > reverseBestDot) {
+                reverseNextBestDot = reverseBestDot;
+                reverseBestDot = value;
+                reverseBestIndex = candidate1;
+            }
+            else if (value > reverseNextBestDot) {
+                reverseNextBestDot = value;
+            }
+        }
+        if (reverseBestIndex != index1 || !passesThresholds(reverseBestDot, reverseNextBestDot))
+            return;
+    }
+
+    matches.values[index1] = bestIndex2;
+}

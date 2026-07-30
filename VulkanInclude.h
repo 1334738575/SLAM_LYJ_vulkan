@@ -4,6 +4,7 @@
 
 #include "VulkanDefines.h"
 #include "VulkanORBMatcher.h"
+#include "VulkanSIFTMatcher.h"
 #include <stdint.h>
 #include <vector>
 
@@ -40,6 +41,15 @@ VULKAN_LYJ_API void matchProVK(MatchVKHandle handle, ORBMatcherCacheVK& cache, G
 	short* matched2to1, short* matched1to2,
 	int distThDesc, float nnTh, char checkOrientation, char use3D, float squareDistTh3D);
 VULKAN_LYJ_API void releaseMatcherVK(MatchVKHandle handle);
+
+typedef void* SIFTMatchVKHandle;
+VULKAN_LYJ_API SIFTMatchVKHandle initSIFTMatcherVK();
+// distMax is acos(cosine similarity), in radians; defaults match SiftGPU.
+VULKAN_LYJ_API void matchBFVK(SIFTMatchVKHandle handle, SIFTMatcherCacheVK& cache,
+	short* matched2to1, short* matched1to2,
+	float distMax = 0.7f, float ratioMax = 0.8f, char mutualBestMatch = 1,
+	char use3D = 0, float squareDistTh3D = 0.0f);
+VULKAN_LYJ_API void releaseSIFTMatcherVK(SIFTMatchVKHandle handle);
 
 
 
