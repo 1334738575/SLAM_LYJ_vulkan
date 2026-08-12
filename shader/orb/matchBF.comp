@@ -11,6 +11,7 @@ layout(std140, set = 0, binding = 0) uniform MatcherParams {
     vec4 Twc2Rows[3];
     vec4 Tcw2Rows[3];
     vec4 fundamentalRows[3];
+    vec4 distortion;
 } params;
 
 layout(std430, set = 0, binding = 1) readonly buffer Descriptors1 { uint values[]; } descs1;

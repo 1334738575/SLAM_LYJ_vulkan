@@ -16,7 +16,7 @@ typedef void* ProVKCacheHandle;
 VULKAN_LYJ_API ProVKHandle initProjectorVK(
 	const float* Pws, const unsigned int PSize,
 	const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
-	float* camParams, const int w, const int h);
+	float* camParams, const int w, const int h, CameraModel cameraModel = CameraModel::Pinhole);
 VULKAN_LYJ_API unsigned int getProjectorVKQueueCount(ProVKHandle handle);
 VULKAN_LYJ_API ProVKCacheHandle initProjectorVKCache(ProVKHandle handle, unsigned int queueIndex = 0);
 VULKAN_LYJ_API void releaseProjectorVKCache(ProVKCacheHandle cacheHandle);
@@ -29,7 +29,8 @@ VULKAN_LYJ_API void projectVK(ProVKHandle handle, ProVKCacheHandle cacheHandle,
 VULKAN_LYJ_API void releaseVK(ProVKHandle handle);
 
 typedef void* MatchVKHandle;
-VULKAN_LYJ_API MatchVKHandle initMatcherVK(int width = 0, int height = 0, const float* camera = nullptr);
+VULKAN_LYJ_API MatchVKHandle initMatcherVK(int width = 0, int height = 0, const float* camera = nullptr,
+	CameraModel cameraModel = CameraModel::Pinhole);
 VULKAN_LYJ_API void matchBFVK(MatchVKHandle handle, ORBMatcherCacheVK& cache,
 	short* matched2to1, short* matched1to2,
 	int distThDesc = 64, float nnTh = 0.8f, char checkOrientation = 0,

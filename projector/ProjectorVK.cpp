@@ -419,7 +419,7 @@ void ProjectorCacheVK::release()
 
 bool ProjectorVK::create(const float* Pws, const unsigned int _PSize,
     const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int _fSize,
-    float* camParams, const int w, const int h)
+    float* camParams, const int w, const int h, CameraModel cameraModel)
 {
     lyjVK = GetLYJVKInstance();
     if (!lyjVK->isInited())
@@ -446,6 +446,21 @@ bool ProjectorVK::create(const float* Pws, const unsigned int _PSize,
     uboComCPU_.fy = camParams[1];
     uboComCPU_.cx = camParams[2];
     uboComCPU_.cy = camParams[3];
+    uboComCPU_.cameraModel = static_cast<uint32_t>(cameraModel);
+    uboComCPU_.padding0 = 0;
+    uboComCPU_.padding1 = 0;
+    if (cameraModel == CameraModel::Fisheye) {
+        uboComCPU_.distortion[0] = camParams[4];
+        uboComCPU_.distortion[1] = camParams[5];
+        uboComCPU_.distortion[2] = camParams[6];
+        uboComCPU_.distortion[3] = camParams[7];
+    }
+    else {
+        uboComCPU_.distortion[0] = 0.0f;
+        uboComCPU_.distortion[1] = 0.0f;
+        uboComCPU_.distortion[2] = 0.0f;
+        uboComCPU_.distortion[3] = 0.0f;
+    }
     uboComCPU_.detd = 0.1f;
     uboComCPU_.maxD = 30.0f;
     uboComCPU_.minD = 0.1f;
@@ -457,7 +472,6 @@ bool ProjectorVK::create(const float* Pws, const unsigned int _PSize,
     uboComCPU_.projectPSize = PSize;
     uboComCPU_.projectPStep = (PSize + 1023) / kernel_;
     uboComCPU_.usePointIds = 0;
-    uboComCPU_.padding = 0;
 
     uboGraphCPU_.halfW = w / 2.0f;
     uboGraphCPU_.halfH = h / 2.0f;

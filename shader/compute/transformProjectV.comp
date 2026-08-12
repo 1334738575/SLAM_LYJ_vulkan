@@ -24,7 +24,10 @@ layout (binding = 0) uniform UBO
     uint projectPSize;
     uint projectPStep;
     uint usePointIds;
-    uint padding;
+    uint cameraModel;
+    uint padding0;
+    uint padding1;
+    vec4 distortion;
 }ubo;
 
 layout(binding = 1) buffer Data{
@@ -36,6 +39,27 @@ layout(binding = 2) buffer Data2{
 layout(binding = 3) buffer Data3{
     float T[];
 };
+
+vec2 projectPoint(vec3 point)
+{
+    float x = point.x / point.z;
+    float y = point.y / point.z;
+    if (ubo.cameraModel == 1u) {
+        float r = length(vec2(x, y));
+        if (r < 1e-12)
+            return vec2(ubo.cx, ubo.cy);
+        float theta = atan(r);
+        float theta2 = theta * theta;
+        float theta4 = theta2 * theta2;
+        float theta6 = theta4 * theta2;
+        float theta8 = theta4 * theta4;
+        float thetaD = theta * (1.0 + ubo.distortion.x * theta2 + ubo.distortion.y * theta4 +
+            ubo.distortion.z * theta6 + ubo.distortion.w * theta8);
+        float scale = thetaD / r;
+        return vec2(ubo.fx * x * scale + ubo.cx, ubo.fy * y * scale + ubo.cy);
+    }
+    return vec2(x * ubo.fx + ubo.cx, y * ubo.fy + ubo.cy);
+}
 
 void main()
 {
@@ -52,8 +76,9 @@ void main()
         float y = T[1] * Pws[i * 3 + 0] + T[4] * Pws[i * 3 + 1] + T[7] * Pws[i * 3 + 2] + T[10];
         float z = T[2] * Pws[i * 3 + 0] + T[5] * Pws[i * 3 + 1] + T[8] * Pws[i * 3 + 2] + T[11];
 
-        uvds[i * 3 + 0] = x / z * ubo.fx + ubo.cx;
-        uvds[i * 3 + 1] = y / z * ubo.fy + ubo.cy;
+        vec2 uv = projectPoint(vec3(x, y, z));
+        uvds[i * 3 + 0] = uv.x;
+        uvds[i * 3 + 1] = uv.y;
         uvds[i * 3 + 2] = z;
     }
 }

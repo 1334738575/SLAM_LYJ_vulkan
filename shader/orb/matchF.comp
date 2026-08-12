@@ -11,6 +11,7 @@ layout(std140, set = 0, binding = 0) uniform MatcherParams {
     vec4 Twc2Rows[3];
     vec4 Tcw2Rows[3];
     vec4 fundamentalRows[3];
+    vec4 distortion;
 } params;
 
 layout(std430, set = 0, binding = 1) readonly buffer Keypoints1 { float values[]; } keypoints1;
@@ -38,6 +39,27 @@ vec3 transformPoint(vec4 rows[3], vec3 point)
 {
     vec4 homogeneous = vec4(point, 1.0);
     return vec3(dot(rows[0], homogeneous), dot(rows[1], homogeneous), dot(rows[2], homogeneous));
+}
+
+vec2 projectKeypoint(vec3 homogeneous)
+{
+    if (params.options.w == 1) {
+        float r = length(homogeneous.xy);
+        if (r < 1e-12)
+            return vec2(params.cameraImage.x, params.cameraImage.y);
+        float theta = atan(r);
+        float theta2 = theta * theta;
+        float theta4 = theta2 * theta2;
+        float theta6 = theta4 * theta2;
+        float theta8 = theta4 * theta4;
+        float thetaD = theta * (1.0 + params.distortion.x * theta2 + params.distortion.y * theta4 +
+            params.distortion.z * theta6 + params.distortion.w * theta8);
+        float scale = thetaD / r;
+        return vec2(params.thresholdsCamera.z * homogeneous.x * scale + params.cameraImage.x,
+            params.thresholdsCamera.w * homogeneous.y * scale + params.cameraImage.y);
+    }
+    return vec2(params.thresholdsCamera.z * homogeneous.x + params.cameraImage.x,
+        params.thresholdsCamera.w * homogeneous.y + params.cameraImage.y);
 }
 
 int descriptorDistance(int index1, int index2)
@@ -101,14 +123,6 @@ void main()
     if (params.options.z == 1 && point1(index1).z <= 0.0)
         return;
 
-    vec2 keypoint = vec2(keypoints1.values[index1 * 2], keypoints1.values[index1 * 2 + 1]);
-    vec3 homogeneous = vec3(keypoint, 1.0);
-    vec3 line = vec3(dot(params.fundamentalRows[0].xyz, homogeneous),
-        dot(params.fundamentalRows[1].xyz, homogeneous),
-        dot(params.fundamentalRows[2].xyz, homogeneous));
-    if (dot(line.xy, line.xy) < 1e-12)
-        return;
-
     int bestIndex = -1;
     int bestDistance = 257;
     int nextDistance = 257;
@@ -116,33 +130,49 @@ void main()
     int activeWidth = min(params.sizes.z, int(ceil(params.cameraImage.z / float(resolution))));
     int activeHeight = min(params.sizes.w, int(ceil(params.cameraImage.w / float(resolution))));
 
-    if (abs(line.x) >= abs(line.y)) {
+    if (params.options.w == 1) {
         for (int row = 0; row < activeHeight; ++row) {
-            float y = (float(row) + 0.5) * float(resolution);
-            float x = -(line.y * y + line.z) / line.x;
-            float gridColumn = x / float(resolution);
-            int column = int(floor(gridColumn));
-            testCell(column, row, index1, bestIndex, bestDistance, nextDistance);
-            float boundary = round(gridColumn);
-            if (abs(gridColumn - boundary) < 1e-4) {
-                int adjacentColumn = gridColumn < boundary ? int(boundary) : int(boundary) - 1;
-                if (adjacentColumn != column)
-                    testCell(adjacentColumn, row, index1, bestIndex, bestDistance, nextDistance);
-            }
+            for (int column = 0; column < activeWidth; ++column)
+                testCell(column, row, index1, bestIndex, bestDistance, nextDistance);
         }
     }
     else {
-        for (int column = 0; column < activeWidth; ++column) {
-            float x = (float(column) + 0.5) * float(resolution);
-            float y = -(line.x * x + line.z) / line.y;
-            float gridRow = y / float(resolution);
-            int row = int(floor(gridRow));
-            testCell(column, row, index1, bestIndex, bestDistance, nextDistance);
-            float boundary = round(gridRow);
-            if (abs(gridRow - boundary) < 1e-4) {
-                int adjacentRow = gridRow < boundary ? int(boundary) : int(boundary) - 1;
-                if (adjacentRow != row)
-                    testCell(column, adjacentRow, index1, bestIndex, bestDistance, nextDistance);
+        vec2 keypoint = vec2(keypoints1.values[index1 * 2], keypoints1.values[index1 * 2 + 1]);
+        vec3 homogeneous = vec3(keypoint, 1.0);
+        vec3 line = vec3(dot(params.fundamentalRows[0].xyz, homogeneous),
+            dot(params.fundamentalRows[1].xyz, homogeneous),
+            dot(params.fundamentalRows[2].xyz, homogeneous));
+        if (dot(line.xy, line.xy) < 1e-12)
+            return;
+
+        if (abs(line.x) >= abs(line.y)) {
+            for (int row = 0; row < activeHeight; ++row) {
+                float y = (float(row) + 0.5) * float(resolution);
+                float x = -(line.y * y + line.z) / line.x;
+                float gridColumn = x / float(resolution);
+                int column = int(floor(gridColumn));
+                testCell(column, row, index1, bestIndex, bestDistance, nextDistance);
+                float boundary = round(gridColumn);
+                if (abs(gridColumn - boundary) < 1e-4) {
+                    int adjacentColumn = gridColumn < boundary ? int(boundary) : int(boundary) - 1;
+                    if (adjacentColumn != column)
+                        testCell(adjacentColumn, row, index1, bestIndex, bestDistance, nextDistance);
+                }
+            }
+        }
+        else {
+            for (int column = 0; column < activeWidth; ++column) {
+                float x = (float(column) + 0.5) * float(resolution);
+                float y = -(line.x * x + line.z) / line.y;
+                float gridRow = y / float(resolution);
+                int row = int(floor(gridRow));
+                testCell(column, row, index1, bestIndex, bestDistance, nextDistance);
+                float boundary = round(gridRow);
+                if (abs(gridRow - boundary) < 1e-4) {
+                    int adjacentRow = gridRow < boundary ? int(boundary) : int(boundary) - 1;
+                    if (adjacentRow != row)
+                        testCell(column, adjacentRow, index1, bestIndex, bestDistance, nextDistance);
+                }
             }
         }
     }

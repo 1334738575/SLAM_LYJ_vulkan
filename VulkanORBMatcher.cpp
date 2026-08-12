@@ -1,6 +1,7 @@
 #include "VulkanORBMatcher.h"
 
 #include "VulkanConfig.h"
+#include "VulkanDefines.h"
 
 #include <algorithm>
 #include <cmath>
@@ -22,7 +23,7 @@ struct alignas(16) ORBMatcherParams
 	int gridResolution = VKORBGRIDSOLU;
 	int distThDesc = 0;
 	int use3D = 0;
-	int padding0 = 0;
+	int cameraModel = 0;
 
 	float nnTh = 0.0f;
 	float squareDistTh3D = 0.0f;
@@ -38,9 +39,10 @@ struct alignas(16) ORBMatcherParams
 	float Twc2Rows[12]{};
 	float Tcw2Rows[12]{};
 	float fundamentalRows[12]{};
+	float distortion[4]{};
 };
 
-static_assert(sizeof(ORBMatcherParams) == 256, "ORB matcher UBO layout must match GLSL std140 layout");
+static_assert(sizeof(ORBMatcherParams) == 272, "ORB matcher UBO layout must match GLSL std140 layout");
 
 template <typename T>
 void destroyPtr(std::shared_ptr<T>& ptr)
@@ -194,13 +196,16 @@ void waitFence(VKFence& fence)
 class ORBMatcherVK
 {
 public:
-	ORBMatcherVK(int width, int height, const float* camera)
-		: width_(width), height_(height)
+	ORBMatcherVK(int width, int height, const float* camera, CameraModel cameraModel)
+		: width_(width), height_(height), cameraModel_(cameraModel)
 	{
 		if (camera) {
 			if (width <= 0 || height <= 0)
 				throw std::invalid_argument("invalid ORB matcher image size");
-			std::copy(camera, camera + 4, camera_.begin());
+			if (cameraModel_ == CameraModel::Fisheye)
+				std::copy(camera, camera + 8, camera_.begin());
+			else
+				std::copy(camera, camera + 4, camera_.begin());
 			hasCamera_ = true;
 		}
 		if (!ensureVulkan())
@@ -280,6 +285,7 @@ private:
 		params.hGrid = cache.hGrid_;
 		params.distThDesc = distThDesc;
 		params.use3D = use3D == 1 ? 1 : 0;
+		params.cameraModel = static_cast<int>(cameraModel_);
 		params.nnTh = nnTh;
 		params.squareDistTh3D = squareDistTh3D;
 		params.fx = camera_[0];
@@ -293,6 +299,12 @@ private:
 		makeTransformRows(params.Tcw2Rows, cache.Tcw2_);
 		if (hasCamera_)
 			computeFundamentalRows(params.fundamentalRows, cache.Tcw2_, cache.Twc1_, camera_.data());
+		if (cameraModel_ == CameraModel::Fisheye) {
+			params.distortion[0] = camera_[4];
+			params.distortion[1] = camera_[5];
+			params.distortion[2] = camera_[6];
+			params.distortion[3] = camera_[7];
+		}
 		return params;
 	}
 
@@ -375,7 +387,8 @@ private:
 	int width_ = 0;
 	int height_ = 0;
 	bool hasCamera_ = false;
-	std::array<float, 4> camera_{};
+	CameraModel cameraModel_ = CameraModel::Pinhole;
+	std::array<float, 8> camera_{};
 };
 
 GridVK::GridVK()
@@ -616,10 +629,10 @@ void runMatcher(void* handle, ORBMatcherCacheVK& cache,
 
 } // namespace
 
-VULKAN_LYJ_API void* initMatcherVK(int width, int height, const float* camera)
+VULKAN_LYJ_API void* initMatcherVK(int width, int height, const float* camera, CameraModel cameraModel)
 {
 	try {
-		return new ORBMatcherVK(width, height, camera);
+		return new ORBMatcherVK(width, height, camera, cameraModel);
 	}
 	catch (const std::exception&) {
 		return nullptr;

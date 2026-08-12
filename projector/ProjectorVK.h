@@ -28,7 +28,10 @@ struct UBOProjectCompute
     uint32_t projectPSize;
     uint32_t projectPStep;
     uint32_t usePointIds;
-    uint32_t padding;
+    uint32_t cameraModel;
+    uint32_t padding0;
+    uint32_t padding1;
+    float distortion[4];
 };
 
 struct UBOProjectGraph
@@ -140,7 +143,7 @@ public:
 
     bool create(const float* Pws, const unsigned int PSize,
         const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize,
-        float* camParams, const int w, const int h);
+        float* camParams, const int w, const int h, CameraModel cameraModel = CameraModel::Pinhole);
 
     uint32_t getQueueCount() const;
 

@@ -11,6 +11,12 @@
 
 NSP_VULKAN_LYJ_BEGIN
 
+enum class CameraModel : uint32_t
+{
+	Pinhole = 0,
+	Fisheye = 1,
+};
+
 
 
 

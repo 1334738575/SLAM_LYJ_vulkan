@@ -11,6 +11,7 @@ layout(std140, set = 0, binding = 0) uniform MatcherParams {
     vec4 Twc2Rows[3];
     vec4 Tcw2Rows[3];
     vec4 fundamentalRows[3];
+    vec4 distortion;
 } params;
 
 layout(std430, set = 0, binding = 1) readonly buffer Descriptors1 { uint values[]; } descs1;
@@ -38,6 +39,29 @@ vec3 transformPoint(vec4 rows[3], vec3 point)
 {
     vec4 homogeneous = vec4(point, 1.0);
     return vec3(dot(rows[0], homogeneous), dot(rows[1], homogeneous), dot(rows[2], homogeneous));
+}
+
+vec2 projectPoint(vec3 point)
+{
+    float x = point.x / point.z;
+    float y = point.y / point.z;
+    if (params.options.w == 1) {
+        float r = length(vec2(x, y));
+        if (r < 1e-12)
+            return vec2(params.cameraImage.x, params.cameraImage.y);
+        float theta = atan(r);
+        float theta2 = theta * theta;
+        float theta4 = theta2 * theta2;
+        float theta6 = theta4 * theta2;
+        float theta8 = theta4 * theta4;
+        float thetaD = theta * (1.0 + params.distortion.x * theta2 + params.distortion.y * theta4 +
+            params.distortion.z * theta6 + params.distortion.w * theta8);
+        float scale = thetaD / r;
+        return vec2(params.thresholdsCamera.z * x * scale + params.cameraImage.x,
+            params.thresholdsCamera.w * y * scale + params.cameraImage.y);
+    }
+    return vec2(params.thresholdsCamera.z * x + params.cameraImage.x,
+        params.thresholdsCamera.w * y + params.cameraImage.y);
 }
 
 int descriptorDistance(int index1, int index2)
@@ -82,8 +106,9 @@ void main()
     vec3 cameraPoint = transformPoint(params.Tcw2Rows, worldPoint.xyz);
     if (cameraPoint.z <= 0.0)
         return;
-    float u = cameraPoint.x * params.thresholdsCamera.z / cameraPoint.z + params.cameraImage.x;
-    float v = cameraPoint.y * params.thresholdsCamera.w / cameraPoint.z + params.cameraImage.y;
+    vec2 projected = projectPoint(cameraPoint);
+    float u = projected.x;
+    float v = projected.y;
     int centerColumn = int(floor(u / float(params.options.x)));
     int centerRow = int(floor(v / float(params.options.x)));
     int activeWidth = min(params.sizes.z, int(ceil(params.cameraImage.z / float(params.options.x))));

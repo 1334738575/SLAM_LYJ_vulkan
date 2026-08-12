@@ -5,10 +5,10 @@
 NSP_VULKAN_LYJ_BEGIN
 
 
-VULKAN_LYJ_API ProVKHandle initProjectorVK(const float* Pws, const unsigned int PSize, const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize, float* camParams, const int w, const int h)
+VULKAN_LYJ_API ProVKHandle initProjectorVK(const float* Pws, const unsigned int PSize, const float* centers, const float* fNormals, const unsigned int* faces, const unsigned int fSize, float* camParams, const int w, const int h, CameraModel cameraModel)
 {
 	ProjectorVK* pro = new ProjectorVK();
-	if (!pro->create(Pws, PSize, centers, fNormals, faces, fSize, camParams, w, h))
+	if (!pro->create(Pws, PSize, centers, fNormals, faces, fSize, camParams, w, h, cameraModel))
 	{
 		delete pro;
 		return nullptr;
